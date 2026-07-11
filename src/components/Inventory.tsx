@@ -6,6 +6,8 @@ import { peso } from '@/lib/format';
 import { useUI } from './UI';
 import type { AdjustReason, Category, Employee, Item, ItemStats } from '@/lib/types';
 
+const NEW_ITEM_DRAFT_KEY = 'tindapos:new-item-draft';
+
 interface InventoryProps {
   items: Item[];
   categories: Category[];
@@ -31,15 +33,49 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
 
   function itemModal(item: Item | null) {
     const isNew = !item;
+
+    // For a brand-new item, restore any draft the user left behind after an
+    // accidental close (overlay click / Escape). Editing an existing item
+    // always starts from that item's real values.
+    let draft: Partial<typeof state> = {};
+    if (isNew) {
+      try {
+        const raw = localStorage.getItem(NEW_ITEM_DRAFT_KEY);
+        if (raw) draft = JSON.parse(raw);
+      } catch {
+        /* ignore malformed draft */
+      }
+    }
+
     const state = {
-      name: item?.name || '',
-      sku: item?.sku || '',
-      category_id: item?.category_id || categories[0]?.id || ('' as number | ''),
-      cost: item?.cost ?? ('' as number | ''),
-      price: item?.price ?? ('' as number | ''),
-      stock: item?.stock ?? 0,
-      low_stock: item?.low_stock ?? 5,
+      name: item?.name ?? draft.name ?? '',
+      sku: item?.sku ?? draft.sku ?? '',
+      category_id:
+        item?.category_id ?? draft.category_id ?? categories[0]?.id ?? ('' as number | ''),
+      cost: item?.cost ?? draft.cost ?? ('' as number | ''),
+      price: item?.price ?? draft.price ?? ('' as number | ''),
+      stock: item?.stock ?? draft.stock ?? 0,
+      low_stock: item?.low_stock ?? draft.low_stock ?? 5,
     };
+
+    // Persist the new-item draft on every change so it survives an accidental
+    // close; a no-op when editing an existing item.
+    const saveDraft = () => {
+      if (!isNew) return;
+      try {
+        localStorage.setItem(NEW_ITEM_DRAFT_KEY, JSON.stringify(state));
+      } catch {
+        /* storage unavailable — draft simply won't persist */
+      }
+    };
+    const clearDraft = () => {
+      try {
+        localStorage.removeItem(NEW_ITEM_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+
     let imageFile: File | null = null;
     let imagePreview: string | null = item?.image_url || null;
     let error = '';
@@ -74,18 +110,33 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
             </div>
             <div className="field">
               <label>Name</label>
-              <input defaultValue={state.name} onChange={(e) => (state.name = e.target.value)} />
+              <input
+                defaultValue={state.name}
+                onChange={(e) => {
+                  state.name = e.target.value;
+                  saveDraft();
+                }}
+              />
             </div>
             <div className="fieldRow">
               <div className="field">
                 <label>SKU</label>
-                <input defaultValue={state.sku} onChange={(e) => (state.sku = e.target.value)} />
+                <input
+                  defaultValue={state.sku}
+                  onChange={(e) => {
+                    state.sku = e.target.value;
+                    saveDraft();
+                  }}
+                />
               </div>
               <div className="field">
                 <label>Category</label>
                 <select
                   defaultValue={state.category_id}
-                  onChange={(e) => (state.category_id = Number(e.target.value))}
+                  onChange={(e) => {
+                    state.category_id = Number(e.target.value);
+                    saveDraft();
+                  }}
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -102,7 +153,10 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                   type="number"
                   inputMode="decimal"
                   defaultValue={state.cost}
-                  onChange={(e) => (state.cost = e.target.value === '' ? '' : +e.target.value)}
+                  onChange={(e) => {
+                    state.cost = e.target.value === '' ? '' : +e.target.value;
+                    saveDraft();
+                  }}
                 />
               </div>
               <div className="field">
@@ -111,7 +165,10 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                   type="number"
                   inputMode="decimal"
                   defaultValue={state.price}
-                  onChange={(e) => (state.price = e.target.value === '' ? '' : +e.target.value)}
+                  onChange={(e) => {
+                    state.price = e.target.value === '' ? '' : +e.target.value;
+                    saveDraft();
+                  }}
                 />
               </div>
             </div>
@@ -123,7 +180,10 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                   inputMode="numeric"
                   defaultValue={state.stock}
                   disabled={!isNew}
-                  onChange={(e) => (state.stock = +e.target.value || 0)}
+                  onChange={(e) => {
+                    state.stock = +e.target.value || 0;
+                    saveDraft();
+                  }}
                 />
               </div>
               <div className="field">
@@ -132,7 +192,10 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                   type="number"
                   inputMode="numeric"
                   defaultValue={state.low_stock}
-                  onChange={(e) => (state.low_stock = +e.target.value || 0)}
+                  onChange={(e) => {
+                    state.low_stock = +e.target.value || 0;
+                    saveDraft();
+                  }}
                 />
               </div>
             </div>
@@ -144,7 +207,14 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                 Delete
               </button>
             )}
-            <button className="btn" onClick={closeModal}>
+            <button
+              className="btn"
+              onClick={() => {
+                // Cancel is an explicit discard, so drop the saved draft.
+                if (isNew) clearDraft();
+                closeModal();
+              }}
+            >
               Cancel
             </button>
             <button
@@ -170,6 +240,7 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                     ? await api.createItem({ ...payload, stock: +state.stock || 0, color: randomColor() })
                     : await api.updateItem(item.id, payload);
                   if (imageFile) await api.uploadItemImage(saved.id, imageFile);
+                  if (isNew) clearDraft();
                   closeModal();
                   reloadItems();
                   toast(isNew ? 'Item created' : 'Item saved');

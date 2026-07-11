@@ -25,6 +25,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
   const [ticket, setTicket] = useState<TicketLine[]>([]);
   const [discountPct, setDiscountPct] = useState(0);
   const [placing, setPlacing] = useState(false);
+  const [ticketOpen, setTicketOpen] = useState(false);
 
   const catNames = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories]);
 
@@ -154,6 +155,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
       });
       setTicket([]);
       setDiscountPct(0);
+      setTicketOpen(false);
       await reloadItems();
       showReceipt(sale);
     } catch (e) {
@@ -193,7 +195,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      <div id="sellBody">
+      <div id="sellBody" className={ticketOpen ? 'ticketOpen' : ''}>
         <div id="catalog">
           <div className="catTabs">
             {catNames.map((c) => (
@@ -218,12 +220,14 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
                       {i.name[0]}
                     </div>
                   )}
-                  <div className="nm">{i.name}</div>
-                  <div className="pr">
-                    <b>{peso(i.price)}</b>
-                    <span className={'stk' + (low ? ' low' : '')}>
-                      {i.stock <= 0 ? 'Out' : `${i.stock} left`}
-                    </span>
+                  <div className="cardBody">
+                    <div className="nm">{i.name}</div>
+                    <div className="pr">
+                      <b>{peso(i.price)}</b>
+                      <span className={'stk' + (low ? ' low' : '')}>
+                        {i.stock <= 0 ? 'Out' : `${i.stock} left`}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
@@ -236,6 +240,13 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
             <span style={{ color: 'var(--muted)', fontSize: 13 }}>
               {ticket.reduce((s, l) => s + l.qty, 0)} items
             </span>
+            <button
+              className="sheetClose"
+              onClick={() => setTicketOpen(false)}
+              aria-label="Close ticket"
+            >
+              ✕
+            </button>
           </header>
           <div id="ticketLines">
             {ticket.length === 0 && <div className="tEmpty">Tap items to add them to the ticket</div>}
@@ -288,6 +299,16 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
             </div>
           </footer>
         </aside>
+        {ticket.length > 0 && (
+          <button className="ticketPeek" onClick={() => setTicketOpen(true)}>
+            <span className="peekCount">
+              {ticket.reduce((s, l) => s + l.qty, 0)} item
+              {ticket.reduce((s, l) => s + l.qty, 0) === 1 ? '' : 's'}
+            </span>
+            <span className="peekTotal">{peso(total)}</span>
+            <span className="peekGo">View ticket ›</span>
+          </button>
+        )}
       </div>
     </section>
   );
