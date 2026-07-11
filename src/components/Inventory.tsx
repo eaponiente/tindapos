@@ -494,6 +494,6 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
 }
 
 function randomColor(): string {
-  const palette = ['#6B4226', '#4E6E58', '#B4763A', '#4C8FB4', '#8A4B3B', '#7FA23C'];
+  const palette = ['#6B4226', '#8A5A2B', '#A6742E', '#7C4A32', '#9A6B3A', '#5E5233'];
   return palette[Math.floor(Math.random() * palette.length)];
 }

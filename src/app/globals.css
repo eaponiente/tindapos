@@ -1,11 +1,13 @@
 :root{
-  --paper:#F7F6F2; --panel:#FFFFFF; --ink:#1E2422; --muted:#6B7370;
-  --leaf:#1F6E4E; --leaf-dark:#15533A; --leaf-tint:#E2F1E8;
-  --amber:#E8A13C; --amber-dark:#C98220;
-  --line:#E3E0D8; --danger:#C4483B; --ok:#2E8B57;
+  /* Davao Talabahan brand — warm near-black surfaces with a gold accent,
+     on a clean cream/white base so the POS stays bright and professional. */
+  --paper:#F6F3EA; --panel:#FFFFFF; --ink:#191410; --muted:#736B5C;
+  --gold:#B88A2E; --gold-dark:#9A7325; --gold-tint:#F3E9CE;
+  --amber:#E0A93E; --amber-dark:#BE8A28;
+  --line:#E8E1D2; --danger:#C4483B; --ok:#2E8B57;
   --radius:14px;
-  --shadow:0 1px 3px rgba(30,36,34,.08), 0 8px 24px rgba(30,36,34,.06);
-  --shadow-lift:0 2px 6px rgba(30,36,34,.10), 0 12px 32px rgba(30,36,34,.10);
+  --shadow:0 1px 3px rgba(25,20,16,.09), 0 8px 24px rgba(25,20,16,.07);
+  --shadow-lift:0 2px 6px rgba(25,20,16,.11), 0 12px 32px rgba(25,20,16,.11);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{height:100%; margin:0;}
@@ -19,7 +21,7 @@ input,select{font:inherit; color:inherit;}
 h1,h2,h3{margin:0; font-weight:700; letter-spacing:-.02em;}
 
 /* Keyboard/tab focus is visible; taps stay clean */
-:focus-visible{outline:2px solid var(--leaf); outline-offset:2px; border-radius:6px;}
+:focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:6px;}
 input:focus-visible,select:focus-visible{outline-offset:0;}
 
 @keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
@@ -31,22 +33,23 @@ input:focus-visible,select:focus-visible{outline-offset:0;}
   text-align:center; padding:8px; font-size:13.5px; font-weight:600;}
 
 /* Lock screen */
-#lockScreen{position:fixed; inset:0; z-index:60; background:linear-gradient(160deg,#15533A,#1F6E4E 55%,#2A8A63); color:#fff;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; animation:fadeIn .25s ease;}
-#lockScreen .brand{font-size:34px; font-weight:800; letter-spacing:-.03em;}
+#lockScreen{position:fixed; inset:0; z-index:60;
+  background:radial-gradient(120% 80% at 50% 20%, rgba(184,138,46,.18), transparent 55%), linear-gradient(160deg,#15120B,#0C0A06);
+  color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; animation:fadeIn .25s ease;}
+#lockScreen .brand{font-size:34px; font-weight:800; letter-spacing:-.03em; text-shadow:0 2px 24px rgba(184,138,46,.3);}
 #lockScreen .brand span{color:var(--amber);}
-#lockScreen .who{opacity:.85; font-size:15px;}
+#lockScreen .who{opacity:.85; font-size:15px; color:#EAD9B4;}
 .pinDots{display:flex; gap:14px; height:20px;}
-.pinDots i{width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,.8); display:block; font-style:normal;
-  transition:background .12s ease, transform .12s ease;}
-.pinDots i.on{background:#fff; transform:scale(1.12);}
+.pinDots i{width:14px; height:14px; border-radius:50%; border:2px solid rgba(224,169,62,.5); display:block; font-style:normal;
+  transition:background .12s ease, transform .12s ease, box-shadow .12s ease;}
+.pinDots i.on{background:var(--amber); border-color:var(--amber); box-shadow:0 0 12px rgba(224,169,62,.55); transform:scale(1.12);}
 .pinPad{display:grid; grid-template-columns:repeat(3,84px); gap:14px;}
-.pinPad button{height:84px; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; font-size:26px; font-weight:600;
-  transition:background .12s ease, transform .08s ease;}
-.pinPad button:hover{background:rgba(255,255,255,.2);}
-.pinPad button:active{background:rgba(255,255,255,.3); transform:scale(.94);}
-.pinPad button.ghost{background:transparent; font-size:15px; font-weight:500;}
-.pinPad button.ghost:hover{background:rgba(255,255,255,.1);}
+.pinPad button{height:84px; border-radius:50%; background:rgba(255,255,255,.06); border:1px solid rgba(224,169,62,.2); color:#F4EBD5; font-size:26px; font-weight:600;
+  transition:background .12s ease, border-color .12s ease, transform .08s ease;}
+.pinPad button:hover{background:rgba(224,169,62,.14); border-color:rgba(224,169,62,.45);}
+.pinPad button:active{background:rgba(224,169,62,.3); border-color:var(--amber); transform:scale(.94);}
+.pinPad button.ghost{background:transparent; border-color:transparent; font-size:15px; font-weight:500; color:rgba(255,255,255,.72);}
+.pinPad button.ghost:hover{background:rgba(255,255,255,.08); border-color:transparent;}
 #lockError{color:#FFD9A8; font-size:14px; min-height:18px;}
 .lockHint{font-size:13px; opacity:.7; max-width:280px; text-align:center;}
 
@@ -59,7 +62,7 @@ nav#rail{width:88px; background:var(--ink); color:#fff; display:flex; flex-direc
   color:rgba(255,255,255,.65); font-size:11px; font-weight:600; transition:background .12s ease, color .12s ease;}
 #rail button.tab svg{width:24px; height:24px;}
 #rail button.tab:hover{background:rgba(255,255,255,.08); color:rgba(255,255,255,.9);}
-#rail button.tab.active{background:var(--leaf); color:#fff;}
+#rail button.tab.active{background:var(--gold); color:#241A05;}
 #rail .spacer{flex:1;}
 #rail .userChip{width:68px; text-align:center; font-size:11px; color:rgba(255,255,255,.7); padding:8px 4px; border-radius:12px;}
 #rail .userChip b{display:block; color:#fff; font-size:12px; margin-bottom:2px; word-break:break-word;}
@@ -71,13 +74,13 @@ main{flex:1; display:flex; min-width:0; min-height:0;}
 .topbar .grow{flex:1;}
 .search{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 14px; min-width:220px;
   transition:border-color .12s ease, box-shadow .12s ease;}
-.search:focus{border-color:var(--leaf); box-shadow:0 0 0 3px rgba(31,110,78,.12); outline:none;}
+.search:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,138,46,.22); outline:none;}
 .btn{border-radius:12px; padding:11px 18px; font-weight:600; background:var(--panel); border:1px solid var(--line);
   transition:background .12s ease, border-color .12s ease, transform .08s ease, box-shadow .12s ease;}
 .btn:hover{border-color:#CFCBC0; box-shadow:0 1px 3px rgba(30,36,34,.08);}
 .btn:active{transform:scale(.97);}
-.btn.primary{background:var(--leaf); color:#fff; border-color:var(--leaf);}
-.btn.primary:hover{background:var(--leaf-dark); border-color:var(--leaf-dark);}
+.btn.primary{background:var(--gold); color:#241A05; border-color:var(--gold);}
+.btn.primary:hover{background:var(--gold-dark); border-color:var(--gold-dark);}
 .btn.amber{background:var(--amber); color:#3A2A08; border-color:var(--amber);}
 .btn.amber:hover{background:var(--amber-dark); border-color:var(--amber-dark);}
 .btn.danger{background:#fff; color:var(--danger); border-color:#EAC7C2;}
@@ -119,7 +122,7 @@ main{flex:1; display:flex; min-width:0; min-height:0;}
 .tLine .qtyBox{display:flex; align-items:center; gap:6px;}
 .tLine .qtyBox button{width:30px; height:30px; border-radius:8px; background:var(--paper); border:1px solid var(--line); font-size:17px; font-weight:700;
   transition:background .12s ease, border-color .12s ease;}
-.tLine .qtyBox button:hover{border-color:var(--leaf); background:var(--leaf-tint);}
+.tLine .qtyBox button:hover{border-color:var(--gold); background:var(--gold-tint);}
 .tLine .amt{width:74px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600; font-size:14.5px;}
 .tEmpty{color:var(--muted); text-align:center; padding:40px 20px; font-size:14.5px;}
 #ticket footer{border-top:1px dashed var(--line); padding:10px 16px 18px;}
@@ -147,7 +150,7 @@ tbody tr:hover{background:#FCFBF8;}
 tr.rowBtn{cursor:pointer;} tr.rowBtn:active{background:var(--paper);}
 td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .pill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:12.5px; font-weight:700;}
-.pill.ok{background:var(--leaf-tint); color:var(--leaf-dark);}
+.pill.ok{background:var(--gold-tint); color:#6E5014;}
 .pill.low{background:#FBEAE1; color:#A33B2E;}
 .pill.out{background:#F0EEE8; color:var(--muted);}
 .pill.refund{background:#FBEAE1; color:#A33B2E;}
@@ -171,7 +174,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .field label{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:5px;}
 .field input,.field select{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:#FCFBF8;
   transition:border-color .12s ease, box-shadow .12s ease;}
-.field input:focus,.field select:focus{border-color:var(--leaf); box-shadow:0 0 0 3px rgba(31,110,78,.12); outline:none;}
+.field input:focus,.field select:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,138,46,.22); outline:none;}
 .field input:disabled{opacity:.55; background:#F0EEE8;}
 .fieldRow{display:flex; gap:12px;} .fieldRow .field{flex:1;}
 .imgPreviewRow{display:flex; align-items:center; gap:14px; margin-bottom:14px;}
@@ -181,13 +184,13 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .payBtns button{padding:16px; border-radius:12px; border:2px solid var(--line); font-weight:700; font-size:16px; background:#FCFBF8;
   transition:border-color .12s ease, background .12s ease;}
 .payBtns button:hover{border-color:#CFCBC0;}
-.payBtns button.sel{border-color:var(--leaf); background:var(--leaf-tint); color:var(--leaf-dark);}
+.payBtns button.sel{border-color:var(--gold); background:var(--gold-tint); color:var(--gold-dark);}
 .bigTotal{text-align:center; font-size:34px; font-weight:800; margin:4px 0 12px; letter-spacing:-.02em;}
 .quickCash{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
 .quickCash button{padding:9px 14px; border-radius:10px; border:1px solid var(--line); background:#FCFBF8; font-weight:600;
   transition:border-color .12s ease, background .12s ease;}
-.quickCash button:hover{border-color:var(--leaf); background:var(--leaf-tint);}
-.changeDue{text-align:center; font-size:17px; margin-top:10px; color:var(--leaf-dark); font-weight:700; min-height:22px;}
+.quickCash button:hover{border-color:var(--gold); background:var(--gold-tint);}
+.changeDue{text-align:center; font-size:17px; margin-top:10px; color:var(--gold-dark); font-weight:700; min-height:22px;}
 .receipt{font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:13px; background:#FCFBF8; border:1px dashed var(--line); border-radius:10px; padding:14px; white-space:pre-wrap; margin:0;}
 .errText{color:var(--danger); font-size:13.5px; margin-top:6px;}
 .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 22px; border-radius:999px;

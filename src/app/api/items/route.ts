@@ -31,7 +31,7 @@ export const POST = handler(async (request: NextRequest) => {
       price: Number(body.price),
       stock: Number(body.stock),
       low_stock: Number(body.low_stock),
-      color: body.color || '#1F6E4E',
+      color: body.color || '#B88A2E',
     })
     .select(ITEM_SELECT)
     .single();

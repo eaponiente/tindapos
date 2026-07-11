@@ -26,7 +26,7 @@ create table items (
   price numeric(10,2) not null default 0,
   stock integer not null default 0,
   low_stock integer not null default 5,
-  color text not null default '#1F6E4E',
+  color text not null default '#B88A2E',
   image text, -- storage path in the item-images bucket
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

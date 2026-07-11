@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1F6E4E',
+  themeColor: '#191410',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1, // POS taps shouldn't zoom the layout
