@@ -64,8 +64,8 @@ nav#rail{width:88px; background:var(--ink); color:#fff; display:flex; flex-direc
 #rail .userChip{width:68px; text-align:center; font-size:11px; color:rgba(255,255,255,.7); padding:8px 4px; border-radius:12px;}
 #rail .userChip b{display:block; color:#fff; font-size:12px; margin-bottom:2px; word-break:break-word;}
 #rail .userChip span{text-transform:capitalize;}
-main{flex:1; display:flex; min-width:0;}
-.screen{flex:1; display:flex; min-width:0; flex-direction:column; animation:fadeIn .18s ease;}
+main{flex:1; display:flex; min-width:0; min-height:0;}
+.screen{flex:1; display:flex; min-width:0; min-height:0; flex-direction:column; animation:fadeIn .18s ease;}
 .topbar{display:flex; align-items:center; gap:12px; padding:16px 20px 10px;}
 .topbar h2{font-size:22px;}
 .topbar .grow{flex:1;}
@@ -86,7 +86,7 @@ main{flex:1; display:flex; min-width:0;}
 
 /* Sell */
 #sellBody{display:flex; flex:1; min-height:0;}
-#catalog{flex:1; display:flex; flex-direction:column; min-width:0;}
+#catalog{flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;}
 .catTabs{display:flex; gap:8px; padding:4px 20px 10px; overflow-x:auto;}
 .catTabs button{padding:9px 16px; border-radius:999px; background:var(--panel); border:1px solid var(--line); font-weight:600; font-size:14px; white-space:nowrap;
   transition:background .12s ease, color .12s ease, border-color .12s ease;}
@@ -132,6 +132,9 @@ main{flex:1; display:flex; min-width:0;}
 #chargeBtn:disabled{opacity:.4; cursor:default;}
 .ticketTools{display:flex; gap:8px; margin-top:8px;}
 .ticketTools .btn{flex:1; text-align:center;}
+/* Mobile-only ticket controls — hidden on desktop, activated in the media query below */
+.ticketPeek{display:none;}
+.sheetClose{display:none;}
 
 /* Tables */
 .tableWrap{flex:1; overflow-y:auto; padding:0 20px 20px;}
@@ -199,7 +202,33 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   #app{flex-direction:column-reverse;}
   nav#rail{width:100%; flex-direction:row; justify-content:space-around; padding:6px 4px;}
   #rail .logo,#rail .spacer,#rail .userChip{display:none;}
-  #sellBody{flex-direction:column;}
-  #ticket{width:auto; margin:0; border-radius:16px 16px 0 0; max-height:45dvh;}
+
+  .topbar{padding:12px 14px 6px;}
+  .topbar h2{font-size:19px;}
+  .search{min-width:0; flex:1;}
+
+  /* Sell: product grid gets the whole screen; the ticket becomes a bottom sheet */
+  #sellBody{position:relative; flex-direction:column;}
+  .catTabs{padding:2px 12px 8px;}
+  #grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:4px 12px 84px;}
+
+  #ticket{
+    position:absolute; inset:0; width:auto; margin:0; border-radius:0; max-height:none;
+    transform:translateY(100%); transition:transform .28s cubic-bezier(.2,.9,.3,1.1); z-index:45;
+  }
+  #sellBody.ticketOpen #ticket{transform:translateY(0);}
+  #ticket header h3{flex:1;}
+  .sheetClose{display:flex; align-items:center; justify-content:center; width:34px; height:34px; margin-left:6px;
+    border-radius:9px; font-size:17px; color:var(--muted);}
+  .sheetClose:active{background:var(--paper);}
+
+  /* Compact cart bar that opens the sheet */
+  .ticketPeek{
+    display:flex; align-items:center; gap:12px; position:absolute; left:10px; right:10px; bottom:10px; z-index:40;
+    background:var(--ink); color:#fff; padding:13px 18px; border-radius:14px; box-shadow:var(--shadow-lift);
+    font-weight:700; font-size:15px; animation:popIn .18s ease;}
+  .ticketPeek .peekTotal{margin-left:auto; font-variant-numeric:tabular-nums;}
+  .ticketPeek .peekGo{font-weight:600; font-size:13px; opacity:.8;}
+  #sellBody.ticketOpen .ticketPeek{display:none;}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}
