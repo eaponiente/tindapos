@@ -218,12 +218,14 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
                       {i.name[0]}
                     </div>
                   )}
-                  <div className="nm">{i.name}</div>
-                  <div className="pr">
-                    <b>{peso(i.price)}</b>
-                    <span className={'stk' + (low ? ' low' : '')}>
-                      {i.stock <= 0 ? 'Out' : `${i.stock} left`}
-                    </span>
+                  <div className="cardBody">
+                    <div className="nm">{i.name}</div>
+                    <div className="pr">
+                      <b>{peso(i.price)}</b>
+                      <span className={'stk' + (low ? ' low' : '')}>
+                        {i.stock <= 0 ? 'Out' : `${i.stock} left`}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
