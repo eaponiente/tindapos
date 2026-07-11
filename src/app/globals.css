@@ -217,7 +217,20 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   /* Sell: product grid gets the whole screen; the ticket becomes a bottom sheet */
   #sellBody{position:relative; flex-direction:column;}
   .catTabs{padding:2px 12px 8px;}
-  #grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:4px 12px 84px;}
+  #grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; padding:4px 12px 84px;}
+
+  /* Small screens: the photo fills the tile and the name/price overlay its
+     bottom on a gradient scrim, so the name is always visible without pushing
+     the card taller than the photo. */
+  .itemCard{position:relative;}
+  .itemCard .cardBody{position:absolute; left:0; right:0; bottom:0; padding:18px 10px 8px; gap:1px;
+    background:linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.55) 45%, rgba(0,0,0,0));}
+  .itemCard .nm{color:#fff; font-size:13.5px; line-height:1.2; text-shadow:0 1px 2px rgba(0,0,0,.55);
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .itemCard .pr{padding-top:2px;}
+  .itemCard .pr b{color:#fff; font-size:13.5px; text-shadow:0 1px 2px rgba(0,0,0,.55);}
+  .itemCard .pr .stk{color:rgba(255,255,255,.9);}
+  .itemCard .pr .stk.low{color:#FFB4A8;}
 
   #ticket{
     position:absolute; inset:0; width:auto; margin:0; border-radius:0; max-height:none;
