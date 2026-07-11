@@ -100,9 +100,9 @@ main{flex:1; display:flex; min-width:0; min-height:0;}
 .itemCard:active{transform:scale(.97);}
 .itemCard .swatch{width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; font-size:46px; color:#fff; font-weight:700; flex-shrink:0;}
 .itemCard img.swatch{width:100%; aspect-ratio:1/1; object-fit:cover; display:block; background:var(--paper);}
-.itemCard .cardBody{padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1;}
-.itemCard .nm{font-weight:600; font-size:15px; line-height:1.25;}
-.itemCard .pr{margin-top:auto; padding-top:2px; display:flex; justify-content:space-between; align-items:baseline;}
+.itemCard .cardBody{padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;}
+.itemCard .nm{font-weight:600; font-size:15px; line-height:1.25; overflow-wrap:break-word; word-break:break-word;}
+.itemCard .pr{margin-top:auto; padding-top:2px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:2px 8px;}
 .itemCard .pr b{font-size:15px;}
 .itemCard .stk{font-size:12px; color:var(--muted);}
 .itemCard .stk.low{color:var(--danger); font-weight:700;}
@@ -197,6 +197,13 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 @media (max-width:820px){
   #ticket{width:290px;}
   nav#rail{width:72px;} #rail button.tab{width:60px;}
+
+  /* Ticket panel is narrow here — give each item name the full row width so
+     it's never squeezed to a few characters. Qty controls + amount wrap to a
+     second line underneath. */
+  .tLine{flex-wrap:wrap; row-gap:6px;}
+  .tLine .nm{flex-basis:100%; min-width:0;}
+  .tLine .amt{margin-left:auto;}
 }
 @media (max-width:640px){
   #app{flex-direction:column-reverse;}
