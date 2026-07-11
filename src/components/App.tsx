@@ -15,6 +15,11 @@ import Categories from './Categories';
 
 type Screen = 'sell' | 'history' | 'inventory' | 'categories' | 'employees';
 
+// Keeps the cashier clocked in across page refreshes. The PIN is already
+// treated as non-secret in this app (shown on staff screens), so persisting
+// the session here matches the existing trust model.
+const SESSION_KEY = 'tindapos:session';
+
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
@@ -25,6 +30,7 @@ const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] 
 
 function AppShell() {
   const [session, setSession] = useState<Employee | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [screen, setScreen] = useState<Screen>('sell');
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -56,6 +62,18 @@ function AppShell() {
     }
   }, []);
 
+  // Restore a persisted session on load so a refresh doesn't kick the cashier
+  // back to the lock screen. Runs client-side only to avoid an SSR mismatch.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) setSession(JSON.parse(raw) as Employee);
+    } catch {
+      /* ignore a corrupted session — user just logs in again */
+    }
+    setHydrated(true);
+  }, []);
+
   useEffect(() => {
     if (!session) return;
     reloadItems();
@@ -64,6 +82,11 @@ function AppShell() {
   }, [session, reloadItems, reloadEmployees, reloadCategories]);
 
   function handleLogin(employee: Employee) {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(employee));
+    } catch {
+      /* storage unavailable — session just won't survive a refresh */
+    }
     setSession(employee);
     setScreen('sell');
   }
@@ -76,9 +99,17 @@ function AppShell() {
         /* clock-out is best-effort */
       }
     }
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
     setSession(null);
   }
 
+  // Hold the first paint until we've checked storage, so a logged-in refresh
+  // never flashes the lock screen.
+  if (!hydrated) return null;
   if (!session) return <LockScreen onLogin={handleLogin} />;
 
   const canManage = roleRank(session.role) >= 1;
