@@ -8,6 +8,16 @@ import type { AdjustReason, Category, Employee, Item, ItemStats } from '@/lib/ty
 
 const NEW_ITEM_DRAFT_KEY = 'tindapos:new-item-draft';
 
+interface ItemFormState {
+  name: string;
+  sku: string;
+  category_id: number | '';
+  cost: number | '';
+  price: number | '';
+  stock: number;
+  low_stock: number;
+}
+
 interface InventoryProps {
   items: Item[];
   categories: Category[];
@@ -37,7 +47,7 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
     // For a brand-new item, restore any draft the user left behind after an
     // accidental close (overlay click / Escape). Editing an existing item
     // always starts from that item's real values.
-    let draft: Partial<typeof state> = {};
+    let draft: Partial<ItemFormState> = {};
     if (isNew) {
       try {
         const raw = localStorage.getItem(NEW_ITEM_DRAFT_KEY);
@@ -47,7 +57,7 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
       }
     }
 
-    const state = {
+    const state: ItemFormState = {
       name: item?.name ?? draft.name ?? '',
       sku: item?.sku ?? draft.sku ?? '',
       category_id:
