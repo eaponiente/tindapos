@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'TindaPOS — Point of Sale',
-    short_name: 'TindaPOS',
+    name: 'Talabahan sa Calinan — Point of Sale',
+    short_name: 'Talabahan',
     description:
       'Point of sale with unlimited sales history, employee management, and advanced inventory.',
     start_url: '/',

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
@@ -8,6 +8,7 @@ import type { Category, Employee, Item, PaymentMethod, Sale } from '@/lib/types'
 
 interface SellProps {
   employee: Employee;
+  branchId: number | null;
   items: Item[];
   categories: Category[];
   reloadItems: () => Promise<void>;
@@ -18,12 +19,13 @@ interface TicketLine {
   qty: number;
 }
 
-export default function Sell({ employee, items, categories, reloadItems }: SellProps) {
+export default function Sell({ employee, branchId, items, categories, reloadItems }: SellProps) {
   const { toast, openModal, closeModal } = useUI();
   const [cat, setCat] = useState('All');
   const [search, setSearch] = useState('');
   const [ticket, setTicket] = useState<TicketLine[]>([]);
   const [discountPct, setDiscountPct] = useState(0);
+  const [discountLabel, setDiscountLabel] = useState('');
   const [placing, setPlacing] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
 
@@ -73,40 +75,16 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
   const total = subtotal - discount;
 
   function askDiscount() {
-    let val: string | number = discountPct;
     openModal(
-      <>
-        <header>
-          <h3>Ticket discount</h3>
-        </header>
-        <div className="bodyPad">
-          <div className="field">
-            <label>Discount (%)</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              defaultValue={discountPct}
-              inputMode="numeric"
-              onChange={(e) => (val = e.target.value)}
-            />
-          </div>
-        </div>
-        <footer>
-          <button className="btn" onClick={closeModal}>
-            Cancel
-          </button>
-          <button
-            className="btn primary"
-            onClick={() => {
-              setDiscountPct(Math.min(100, Math.max(0, +val || 0)));
-              closeModal();
-            }}
-          >
-            Apply
-          </button>
-        </footer>
-      </>,
+      <DiscountModal
+        subtotal={subtotal}
+        onApply={(pct, label) => {
+          setDiscountPct(pct);
+          setDiscountLabel(label);
+          closeModal();
+        }}
+        onCancel={closeModal}
+      />,
     );
   }
 
@@ -144,10 +122,15 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
       toast('Cash received is less than the total');
       return;
     }
+    if (!branchId) {
+      toast('No branch selected');
+      return;
+    }
     setPlacing(true);
     try {
       const sale = await api.createSale({
         employee_id: employee.id,
+        branch_id: branchId,
         discount_pct: discountPct,
         payment_method: method,
         tendered: method === 'cash' ? tendered : total,
@@ -155,6 +138,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
       });
       setTicket([]);
       setDiscountPct(0);
+      setDiscountLabel('');
       setTicketOpen(false);
       await reloadItems();
       showReceipt(sale);
@@ -175,8 +159,16 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
           <pre className="receipt">{receiptText(sale)}</pre>
         </div>
         <footer>
-          <button className="btn primary" onClick={closeModal}>
+          <button className="btn" onClick={closeModal}>
             Done
+          </button>
+          <button
+            className="btn amber"
+            onClick={() => {
+              if (!printReceipt(sale)) toast('Allow pop-ups to print the receipt');
+            }}
+          >
+            🖨 Print receipt
           </button>
         </footer>
       </>,
@@ -273,7 +265,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
               <span>{peso(subtotal)}</span>
             </div>
             <div className="totRow">
-              <span>Discount {discountPct ? `(${discountPct}%)` : ''}</span>
+              <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
               <span>{discount ? '−' + peso(discount) : peso(0)}</span>
             </div>
             <div className="totRow grand">
@@ -292,6 +284,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
                 onClick={() => {
                   setTicket([]);
                   setDiscountPct(0);
+                  setDiscountLabel('');
                 }}
               >
                 Clear
@@ -315,7 +308,7 @@ export default function Sell({ employee, items, categories, reloadItems }: SellP
 }
 
 export function receiptText(sale: Sale): string {
-  let s = '        TINDAPOS STORE\n     Valencia, Bukidnon PH\n';
+  let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
   s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${sale.employee?.name || '—'}\n`;
   s += '--------------------------------\n';
@@ -330,13 +323,71 @@ export function receiptText(sale: Sale): string {
       `Discount ${sale.discount_pct}%`.padEnd(22) + ('-' + peso(sale.discount)).padStart(10) + '\n';
   s += 'TOTAL'.padEnd(22) + peso(sale.total).padStart(10) + '\n';
   s +=
-    (sale.payment_method === 'cash' ? 'Cash' : 'Card').padEnd(22) +
+    (sale.payment_method === 'cash' ? 'Cash' : 'GCash').padEnd(22) +
     peso(sale.tendered).padStart(10) +
     '\n';
   if (+sale.change_due) s += 'Change'.padEnd(22) + peso(sale.change_due).padStart(10) + '\n';
   if (sale.refunded) s += '\n*** REFUNDED ***\n';
   s += '--------------------------------\n      Salamat po! Come again';
   return s;
+}
+
+/** Opens a print-formatted window with monospace text (receipt / report width)
+ *  and fires the browser print dialog. Returns false if a pop-up was blocked. */
+export function printDoc(title: string, text: string): boolean {
+  const win = window.open('', '_blank', 'width=380,height=640');
+  if (!win) return false;
+  const body = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  win.document.write(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>` +
+      '<style>@page{margin:6mm;}' +
+      "body{font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.35;white-space:pre-wrap;margin:0;}" +
+      '</style></head><body>' +
+      body +
+      '</body></html>',
+  );
+  win.document.close();
+  win.focus();
+  win.print();
+  win.onafterprint = () => win.close();
+  return true;
+}
+
+/** Print a single receipt. Returns false if a pop-up was blocked. */
+export function printReceipt(sale: Sale): boolean {
+  return printDoc(`Receipt #${sale.id}`, receiptText(sale));
+}
+
+/** Print a rich HTML document (used for the full-width sales report table, which
+ *  paginates across pages so every transaction fits). Returns false if blocked. */
+export function printHtml(title: string, bodyHtml: string): boolean {
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) return false;
+  win.document.write(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>` +
+      '@page{size:portrait;margin:12mm;}' +
+      "body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#141414;margin:0;}" +
+      'h1{font-size:18px;margin:0 0 2px;letter-spacing:-.01em;}' +
+      '.sub{color:#555;margin:0 0 12px;font-size:13px;}' +
+      'table{width:100%;border-collapse:collapse;}' +
+      'th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #dcdcdc;}' +
+      'th{background:#f2efe8;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#555;}' +
+      'td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}' +
+      'tfoot td{font-weight:700;border-top:2px solid #333;border-bottom:none;}' +
+      '.rfd td{color:#b3261e;text-decoration:line-through;}' +
+      '.summary{margin-top:16px;}' +
+      '.summary .r{display:flex;justify-content:space-between;max-width:320px;padding:3px 0;border-bottom:1px dotted #ccc;}' +
+      '.summary .r.total{font-weight:800;border-bottom:none;font-size:15px;margin-top:4px;}' +
+      'tr{break-inside:avoid;}' +
+      '</style></head><body>' +
+      bodyHtml +
+      '</body></html>',
+  );
+  win.document.close();
+  win.focus();
+  win.print();
+  win.onafterprint = () => win.close();
+  return true;
 }
 
 interface PaymentModalProps {
@@ -348,9 +399,175 @@ interface PaymentModalProps {
   onCancel: () => void;
 }
 
+interface DiscountModalProps {
+  subtotal: number;
+  onApply: (pct: number, label: string) => void;
+  onCancel: () => void;
+}
+
+/** Discount dialog with a BIR-safe Senior/PWD mode (20% on only the seniors'
+ *  pro-rata share, optional VAT exemption) and a manual Manager's mode. Both
+ *  resolve to a ticket-level percentage, which is what checkout stores. */
+function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProps) {
+  const [mode, setMode] = useState<'senior' | 'manager'>('senior');
+  const [diners, setDiners] = useState('1');
+  const [seniors, setSeniors] = useState('1');
+  const [vatExempt, setVatExempt] = useState(false);
+  const [mgrKind, setMgrKind] = useState<'pct' | 'amount'>('pct');
+  const [mgrValue, setMgrValue] = useState('');
+
+  const D = Math.max(1, parseInt(diners, 10) || 1);
+  const K = Math.min(D, Math.max(0, parseInt(seniors, 10) || 0));
+  // Per-share reduction: 20% (non-VAT) or 20% + 12% VAT exemption (VAT-registered).
+  const seniorRate = vatExempt ? 1 - 0.8 / 1.12 : 0.2;
+
+  let amount = 0;
+  let label = '';
+  if (mode === 'senior') {
+    amount = K > 0 ? (subtotal / D) * K * seniorRate : 0;
+    label = `Senior/PWD ${K}/${D}`;
+  } else {
+    const v = parseFloat(mgrValue) || 0;
+    amount = mgrKind === 'pct' ? (subtotal * Math.min(100, Math.max(0, v))) / 100 : Math.max(0, v);
+    label = mgrKind === 'pct' ? `Manager ${Math.min(100, Math.max(0, v))}%` : 'Manager';
+  }
+  amount = Math.min(Math.max(0, amount), subtotal);
+  const pct = subtotal > 0 ? (amount / subtotal) * 100 : 0;
+
+  return (
+    <>
+      <header>
+        <h3>Add discount</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="payBtns" style={{ marginTop: 0 }}>
+          <button className={mode === 'senior' ? 'sel' : ''} onClick={() => setMode('senior')}>
+            🧓 Senior / PWD
+          </button>
+          <button className={mode === 'manager' ? 'sel' : ''} onClick={() => setMode('manager')}>
+            🔑 Manager&apos;s
+          </button>
+        </div>
+
+        {mode === 'senior' ? (
+          <>
+            <div className="fieldRow">
+              <div className="field">
+                <label>Number of diners</label>
+                <input
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  value={diners}
+                  onChange={(e) => setDiners(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label>Seniors / PWD</label>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={seniors}
+                  onChange={(e) => setSeniors(e.target.value)}
+                />
+              </div>
+            </div>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 14,
+                color: 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={vatExempt}
+                onChange={(e) => setVatExempt(e.target.checked)}
+                style={{ width: 16, height: 16 }}
+              />
+              VAT-registered — also apply 12% VAT exemption
+            </label>
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '8px 0 0' }}>
+              Only the {K} senior/PWD share{K === 1 ? '' : 's'} of the bill get the discount — the
+              other {Math.max(0, D - K)} diner{D - K === 1 ? '' : 's'} pay full price.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="payBtns" style={{ margin: '0 0 12px' }}>
+              <button className={mgrKind === 'pct' ? 'sel' : ''} onClick={() => setMgrKind('pct')}>
+                Percent (%)
+              </button>
+              <button
+                className={mgrKind === 'amount' ? 'sel' : ''}
+                onClick={() => setMgrKind('amount')}
+              >
+                Amount (₱)
+              </button>
+            </div>
+            <div className="field">
+              <label>{mgrKind === 'pct' ? 'Discount (%)' : 'Discount amount (₱)'}</label>
+              <input
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={mgrValue}
+                autoFocus
+                onChange={(e) => setMgrValue(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="totRow" style={{ marginTop: 10, fontSize: 16 }}>
+          <span>Discount</span>
+          <b style={{ color: 'var(--danger)' }}>−{peso(amount)}</b>
+        </div>
+        <div className="totRow grand" style={{ fontSize: 18 }}>
+          <span>New total</span>
+          <span>{peso(subtotal - amount)}</span>
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn primary" onClick={() => onApply(pct, amount > 0 ? label : '')}>
+          Apply discount
+        </button>
+      </footer>
+    </>
+  );
+}
+
+/** Stylized GCash badge (self-contained SVG so it works offline / under CSP). */
+function GcashLogo() {
+  return (
+    <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true" style={{ display: 'block' }}>
+      <rect width="48" height="48" rx="11" fill="#0070E0" />
+      <path d="M34 17.5a12 12 0 1 0 0 13" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" />
+      <path d="M29.5 21a6.5 6.5 0 1 0 0 6" fill="none" stroke="#41C4FF" strokeWidth="5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
   const [tendered, setTendered] = useState(Math.ceil(total));
   const change = tendered >= total ? tendered - total : 0;
+  const cashRef = useRef<HTMLInputElement>(null);
+
+  // Put the cursor in the cash field (and select the prefilled amount) so the
+  // cashier can just type what the customer handed over.
+  useEffect(() => {
+    if (method === 'cash') {
+      cashRef.current?.focus();
+      cashRef.current?.select();
+    }
+  }, [method]);
   return (
     <>
       <header>
@@ -363,13 +580,18 @@ function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: 
             💵 Cash
           </button>
           <button className={method === 'card' ? 'sel' : ''} onClick={() => onMethod('card')}>
-            💳 Card / e-wallet
+            <span
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
+            >
+              <GcashLogo /> GCash
+            </span>
           </button>
         </div>
         {method === 'cash' && (
           <div className="field">
             <label>Cash received</label>
             <input
+              ref={cashRef}
               type="number"
               inputMode="decimal"
               value={tendered}

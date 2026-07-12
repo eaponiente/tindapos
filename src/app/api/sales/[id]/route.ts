@@ -7,7 +7,7 @@ export const GET = handler(async (_request: NextRequest, { params }: Ctx) => {
   const { id } = await params;
   const { data, error } = await db()
     .from('sales')
-    .select('*, employee:employees(id, name), items:sale_items(*)')
+    .select('*, employee:employees(id, name), branch:branches(id, name), items:sale_items(*)')
     .eq('id', id)
     .maybeSingle();
   if (error) return fail(error.message, 500);

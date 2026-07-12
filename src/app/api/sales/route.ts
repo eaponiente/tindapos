@@ -4,13 +4,15 @@ import { db, fail, handler } from '@/lib/server';
 export const dynamic = 'force-dynamic';
 
 const PER_PAGE = 50;
-const SALE_SELECT = '*, employee:employees(id, name), items:sale_items(*)';
+const SALE_SELECT =
+  '*, employee:employees(id, name), branch:branches(id, name), items:sale_items(*)';
 
 /** Unlimited sales history — paginated so the API stays fast no matter how many years of receipts pile up. */
 export const GET = handler(async (request: NextRequest) => {
   const sp = request.nextUrl.searchParams;
   const q = sp.get('q')?.trim();
   const employeeId = sp.get('employee_id');
+  const branchId = sp.get('branch_id');
   const page = Math.max(1, Number(sp.get('page')) || 1);
 
   let query = db()
@@ -20,6 +22,7 @@ export const GET = handler(async (request: NextRequest) => {
     .range((page - 1) * PER_PAGE, page * PER_PAGE - 1);
 
   if (employeeId) query = query.eq('employee_id', employeeId);
+  if (branchId) query = query.eq('branch_id', branchId);
 
   if (q) {
     // Match by receipt # and/or by sold item name (the old orWhereHas).
@@ -57,6 +60,7 @@ export const POST = handler(async (request: NextRequest) => {
 
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (!body.employee_id) return fail('employee_id is required');
+  if (!body.branch_id) return fail('A branch is required');
   if (lines.length === 0) return fail('The ticket is empty');
   if (!['cash', 'card'].includes(body.payment_method)) return fail('Invalid payment method');
   const discountPct = Number(body.discount_pct) || 0;
@@ -64,6 +68,7 @@ export const POST = handler(async (request: NextRequest) => {
 
   const { data: saleId, error } = await db().rpc('create_sale', {
     p_employee_id: body.employee_id,
+    p_branch_id: body.branch_id,
     p_discount_pct: discountPct,
     p_payment_method: body.payment_method,
     p_tendered: Number(body.tendered) || 0,

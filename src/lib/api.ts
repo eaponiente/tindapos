@@ -2,6 +2,7 @@
 // so there is no base URL to configure and no CORS to worry about.
 import type {
   AdjustReason,
+  Branch,
   Category,
   Employee,
   Item,
@@ -36,10 +37,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export interface SalePayload {
   employee_id: number;
+  branch_id: number;
   discount_pct: number;
   payment_method: PaymentMethod;
   tendered: number;
   lines: { item_id: number; qty: number }[];
+}
+
+/** Appends the branch filter to a query string when a branch is given. */
+function branchQ(branchId?: number | null): string {
+  return branchId ? `branch_id=${branchId}` : '';
 }
 
 export const api = {
@@ -51,10 +58,17 @@ export const api = {
   logout: (employee_id: number) =>
     request<{ ok: true }>('/logout', { method: 'POST', body: JSON.stringify({ employee_id }) }),
 
-  employees: () => request<Employee[]>('/employees'),
-  createEmployee: (data: Pick<Employee, 'name' | 'pin' | 'role'>) =>
+  branches: () => request<Branch[]>('/branches'),
+  createBranch: (data: { name: string; address?: string }) =>
+    request<Branch>('/branches', { method: 'POST', body: JSON.stringify(data) }),
+  updateBranch: (id: number, data: { name: string; address?: string }) =>
+    request<Branch>(`/branches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  employees: (branchId?: number | null) =>
+    request<Employee[]>('/employees' + (branchId ? `?branch_id=${branchId}` : '')),
+  createEmployee: (data: Pick<Employee, 'name' | 'pin' | 'role' | 'branch_id'>) =>
     request<Employee>('/employees', { method: 'POST', body: JSON.stringify(data) }),
-  updateEmployee: (id: number, data: Pick<Employee, 'name' | 'pin' | 'role'>) =>
+  updateEmployee: (id: number, data: Pick<Employee, 'name' | 'pin' | 'role' | 'branch_id'>) =>
     request<Employee>(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteEmployee: (id: number) => request<{ ok: true }>(`/employees/${id}`, { method: 'DELETE' }),
   shifts: () => request<Shift[]>('/shifts'),
@@ -66,8 +80,12 @@ export const api = {
     request<Category>(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCategory: (id: number) => request<{ ok: true }>(`/categories/${id}`, { method: 'DELETE' }),
 
-  items: (q = '') => request<Item[]>('/items' + (q ? `?q=${encodeURIComponent(q)}` : '')),
-  itemStats: () => request<ItemStats>('/items/stats'),
+  items: (q = '', branchId?: number | null) => {
+    const parts = [q ? `q=${encodeURIComponent(q)}` : '', branchQ(branchId)].filter(Boolean);
+    return request<Item[]>('/items' + (parts.length ? `?${parts.join('&')}` : ''));
+  },
+  itemStats: (branchId?: number | null) =>
+    request<ItemStats>('/items/stats' + (branchId ? `?branch_id=${branchId}` : '')),
   createItem: (data: Partial<Item>) =>
     request<Item>('/items', { method: 'POST', body: JSON.stringify(data) }),
   updateItem: (id: number, data: Partial<Item>) =>
@@ -81,7 +99,14 @@ export const api = {
     return request<Item>(`/items/${id}/image`, { method: 'POST', body: fd });
   },
 
-  sales: (params: { q?: string; employee_id?: string | number; page?: number } = {}) => {
+  sales: (
+    params: {
+      q?: string;
+      employee_id?: string | number;
+      branch_id?: string | number;
+      page?: number;
+    } = {},
+  ) => {
     const qs = new URLSearchParams(
       Object.fromEntries(
         Object.entries(params)
@@ -91,7 +116,8 @@ export const api = {
     ).toString();
     return request<SalesPage>('/sales' + (qs ? `?${qs}` : ''));
   },
-  saleStats: () => request<SaleStats>('/sales/stats'),
+  saleStats: (branchId?: number | null) =>
+    request<SaleStats>('/sales/stats' + (branchId ? `?branch_id=${branchId}` : '')),
   createSale: (data: SalePayload) =>
     request<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) }),
   refundSale: (id: number) => request<Sale>(`/sales/${id}/refund`, { method: 'POST' }),

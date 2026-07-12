@@ -6,8 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export const GET = handler(async (request: NextRequest) => {
   const q = request.nextUrl.searchParams.get('q');
+  const branchId = request.nextUrl.searchParams.get('branch_id');
 
   let query = db().from('items').select(ITEM_SELECT).order('name');
+  if (branchId) query = query.eq('branch_id', branchId);
   if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
 
   const { data, error } = await query;
@@ -20,12 +22,14 @@ export const POST = handler(async (request: NextRequest) => {
   const body = await request.json();
   const invalid = validateItem(body, { withStock: true });
   if (invalid) return fail(invalid);
+  if (!body.branch_id) return fail('A branch is required');
 
   const { data, error } = await db()
     .from('items')
     .insert({
       name: body.name,
       sku: body.sku,
+      branch_id: body.branch_id,
       category_id: body.category_id || null,
       cost: Number(body.cost),
       price: Number(body.price),

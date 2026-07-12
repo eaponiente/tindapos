@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db, fail, handler } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
 
 /** Stats for the Inventory screen header. */
-export const GET = handler(async () => {
-  const { data, error } = await db().from('items').select('cost, stock, low_stock');
+export const GET = handler(async (request: NextRequest) => {
+  const branchId = request.nextUrl.searchParams.get('branch_id');
+  let query = db().from('items').select('cost, stock, low_stock');
+  if (branchId) query = query.eq('branch_id', branchId);
+  const { data, error } = await query;
   if (error) return fail(error.message, 500);
 
   const items = data ?? [];

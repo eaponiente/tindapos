@@ -36,7 +36,8 @@ input:focus-visible,select:focus-visible{outline-offset:0;}
 #lockScreen{position:fixed; inset:0; z-index:60;
   background:radial-gradient(120% 80% at 50% 20%, rgba(184,138,46,.18), transparent 55%), linear-gradient(160deg,#15120B,#0C0A06);
   color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; animation:fadeIn .25s ease;}
-#lockScreen .brand{font-size:34px; font-weight:800; letter-spacing:-.03em; text-shadow:0 2px 24px rgba(184,138,46,.3);}
+#lockScreen .brand{font-size:clamp(26px,7.5vw,34px); font-weight:800; letter-spacing:-.02em; text-align:center;
+  line-height:1.1; max-width:92vw; padding:0 16px; text-shadow:0 2px 24px rgba(184,138,46,.3);}
 #lockScreen .brand span{color:var(--amber);}
 #lockScreen .who{opacity:.85; font-size:15px; color:#EAD9B4;}
 .pinDots{display:flex; gap:14px; height:20px;}
@@ -56,7 +57,10 @@ input:focus-visible,select:focus-visible{outline-offset:0;}
 /* App shell */
 #app{display:flex; height:100dvh;}
 nav#rail{width:88px; background:var(--ink); color:#fff; display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:6px; flex-shrink:0;}
-#rail .logo{font-weight:800; font-size:13px; margin-bottom:14px; text-align:center; line-height:1.1;}
+#rail .logo{display:flex; flex-direction:column; align-items:center; gap:1px; font-weight:800; font-size:11px;
+  letter-spacing:.01em; line-height:1.18; margin-bottom:16px; padding:0 6px; text-align:center;}
+#rail .logo span,#rail .logo b{white-space:nowrap;}
+#rail .logo .sa{font-size:9px; font-weight:700; opacity:.65; letter-spacing:.1em;}
 #rail .logo b{color:var(--amber);}
 #rail button.tab{width:68px; padding:10px 0 8px; border-radius:12px; display:flex; flex-direction:column; align-items:center; gap:4px;
   color:rgba(255,255,255,.65); font-size:11px; font-weight:600; transition:background .12s ease, color .12s ease;}
@@ -67,6 +71,15 @@ nav#rail{width:88px; background:var(--ink); color:#fff; display:flex; flex-direc
 #rail .userChip{width:68px; text-align:center; font-size:11px; color:rgba(255,255,255,.7); padding:8px 4px; border-radius:12px;}
 #rail .userChip b{display:block; color:#fff; font-size:12px; margin-bottom:2px; word-break:break-word;}
 #rail .userChip span{text-transform:capitalize;}
+#rail .branchChip{width:72px; display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:8px;
+  padding:8px 4px; border-radius:12px; background:rgba(224,169,62,.12); border:1px solid rgba(224,169,62,.25); text-align:center;}
+#rail .branchChip svg{width:20px; height:20px; color:var(--amber);}
+#rail .branchChip span{font-size:10.5px; font-weight:800; line-height:1.12; color:#fff; word-break:break-word;}
+#rail .branchChip small{font-size:9px; color:var(--amber); font-weight:700;}
+#rail button.branchChip{cursor:pointer; transition:background .12s ease, border-color .12s ease;}
+#rail button.branchChip:hover{background:rgba(224,169,62,.22); border-color:var(--amber);}
+.branchTag{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px;
+  background:var(--gold-tint); color:var(--gold-dark); font-size:13px; font-weight:700;}
 main{flex:1; display:flex; min-width:0; min-height:0;}
 .screen{flex:1; display:flex; min-width:0; min-height:0; flex-direction:column; animation:fadeIn .18s ease;}
 .topbar{display:flex; align-items:center; gap:12px; padding:16px 20px 10px;}
@@ -199,7 +212,6 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 
 @media (max-width:820px){
   #ticket{width:290px;}
-  nav#rail{width:72px;} #rail button.tab{width:60px;}
 
   /* Ticket panel is narrow here — give each item name the full row width so
      it's never squeezed to a few characters. Qty controls + amount wrap to a
@@ -211,7 +223,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 @media (max-width:640px){
   #app{flex-direction:column-reverse;}
   nav#rail{width:100%; flex-direction:row; justify-content:space-around; padding:6px 4px;}
-  #rail .logo,#rail .spacer,#rail .userChip{display:none;}
+  #rail .logo,#rail .spacer,#rail .userChip,#rail .branchChip{display:none;}
 
   .topbar{padding:12px 14px 6px;}
   .topbar h2{font-size:19px;}

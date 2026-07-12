@@ -37,7 +37,7 @@ export default function LockScreen({ onLogin }: { onLogin: (employee: Employee) 
   return (
     <div id="lockScreen">
       <div className="brand">
-        Tinda<span>POS</span>
+        TALABAHAN SA <span>CALINAN</span>
       </div>
       <div className="who">{busy ? 'Checking…' : 'Enter your PIN to clock in'}</div>
       <div className="pinDots">

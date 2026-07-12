@@ -23,16 +23,25 @@ interface InventoryProps {
   categories: Category[];
   reloadItems: () => Promise<void>;
   employee: Employee;
+  branchId: number | null;
+  branchName: string;
 }
 
-export default function Inventory({ items, categories, reloadItems, employee }: InventoryProps) {
+export default function Inventory({
+  items,
+  categories,
+  reloadItems,
+  employee,
+  branchId,
+  branchName,
+}: InventoryProps) {
   const { toast, openModal, closeModal } = useUI();
   const [q, setQ] = useState('');
   const [stats, setStats] = useState<ItemStats | null>(null);
 
   useEffect(() => {
-    api.itemStats().then(setStats).catch(() => {});
-  }, [items]);
+    api.itemStats(branchId).then(setStats).catch(() => {});
+  }, [items, branchId]);
 
   const filtered = items.filter(
     (i) =>
@@ -40,6 +49,25 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
       i.name.toLowerCase().includes(q.toLowerCase()) ||
       i.sku.toLowerCase().includes(q.toLowerCase()),
   );
+
+  // Build a SKU from the name: initials of each word (or first 3 letters of a
+  // single word) + a 2-digit sequence that avoids clashing with existing SKUs.
+  // e.g. "Grilled Red Talaba" -> "GRT01", next one -> "GRT02".
+  function skuFromName(name: string): string {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '';
+    const prefix = (words.length >= 2 ? words.map((w) => w[0]).join('') : words[0].slice(0, 3))
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+    if (!prefix) return '';
+    let max = 0;
+    const re = new RegExp('^' + prefix + '(\\d+)$');
+    for (const it of items) {
+      const m = it.sku?.match(re);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return prefix + String(max + 1).padStart(2, '0');
+  }
 
   function itemModal(item: Item | null) {
     const isNew = !item;
@@ -90,6 +118,11 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
     let imagePreview: string | null = item?.image_url || null;
     let error = '';
 
+    // Auto-fill the SKU from the name until the user edits SKU themselves.
+    // Editing an existing item, or a restored draft with a SKU, counts as edited.
+    let skuTouched = !isNew || Boolean(draft.sku);
+    let skuInputEl: HTMLInputElement | null = null;
+
     const render = () => {
       openModal(
         <>
@@ -124,6 +157,10 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                 defaultValue={state.name}
                 onChange={(e) => {
                   state.name = e.target.value;
+                  if (isNew && !skuTouched) {
+                    state.sku = skuFromName(state.name);
+                    if (skuInputEl) skuInputEl.value = state.sku;
+                  }
                   saveDraft();
                 }}
               />
@@ -132,9 +169,14 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
               <div className="field">
                 <label>SKU</label>
                 <input
+                  ref={(el) => {
+                    skuInputEl = el;
+                  }}
                   defaultValue={state.sku}
+                  placeholder="Auto from name"
                   onChange={(e) => {
                     state.sku = e.target.value;
+                    skuTouched = true;
                     saveDraft();
                   }}
                 />
@@ -237,9 +279,7 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                 }
                 const payload = {
                   name: state.name,
-                  sku:
-                    state.sku ||
-                    state.name.slice(0, 3).toUpperCase() + '-' + Date.now().toString().slice(-4),
+                  sku: state.sku || skuFromName(state.name),
                   category_id: state.category_id || null,
                   cost: +state.cost || 0,
                   price: +state.price || 0,
@@ -247,7 +287,12 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
                 };
                 try {
                   const saved = isNew
-                    ? await api.createItem({ ...payload, stock: +state.stock || 0, color: randomColor() })
+                    ? await api.createItem({
+                        ...payload,
+                        stock: +state.stock || 0,
+                        color: randomColor(),
+                        branch_id: branchId ?? undefined,
+                      })
                     : await api.updateItem(item.id, payload);
                   if (imageFile) await api.uploadItemImage(saved.id, imageFile);
                   if (isNew) clearDraft();
@@ -405,6 +450,7 @@ export default function Inventory({ items, categories, reloadItems, employee }: 
     <section className="screen">
       <div className="topbar">
         <h2>Inventory</h2>
+        <span className="branchTag">{branchName}</span>
         <div className="grow"></div>
         <input
           className="search"

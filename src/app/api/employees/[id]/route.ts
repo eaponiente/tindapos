@@ -12,7 +12,13 @@ export const PUT = handler(async (request: NextRequest, { params }: Ctx) => {
 
   const { data, error } = await db()
     .from('employees')
-    .update({ name: body.name, pin: body.pin, role: body.role, updated_at: new Date().toISOString() })
+    .update({
+      name: body.name,
+      pin: body.pin,
+      role: body.role,
+      branch_id: body.branch_id ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .select('*')
     .single();

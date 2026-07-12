@@ -52,6 +52,15 @@ export const StaffIcon = () => (
   </svg>
 );
 
+export const BranchIcon = () => (
+  <svg {...base} aria-hidden>
+    <path d="M4 20V9l8-5 8 5v11" />
+    <path d="M3 20h18" />
+    <path d="M9 20v-5h6v5" />
+    <path d="M9 10h.01M15 10h.01" />
+  </svg>
+);
+
 export const LockIcon = () => (
   <svg {...base} aria-hidden>
     <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />

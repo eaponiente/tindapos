@@ -4,16 +4,23 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import type { Employee, Role, Shift } from '@/lib/types';
+import type { Branch, Employee, Role, Shift } from '@/lib/types';
 
 interface EmployeesProps {
   employees: Employee[];
   reloadEmployees: () => Promise<void>;
   session: Employee;
   isOwner: boolean;
+  branches: Branch[];
 }
 
-export default function Employees({ employees, reloadEmployees, session, isOwner }: EmployeesProps) {
+export default function Employees({
+  employees,
+  reloadEmployees,
+  session,
+  isOwner,
+  branches,
+}: EmployeesProps) {
   const { toast, openModal, closeModal } = useUI();
   const [shifts, setShifts] = useState<Shift[]>([]);
 
@@ -27,6 +34,8 @@ export default function Employees({ employees, reloadEmployees, session, isOwner
       name: emp?.name || '',
       role: (emp?.role || 'cashier') as Role,
       pin: emp?.pin || '',
+      // Owner assigns any branch; a manager can only add staff to their own branch.
+      branch_id: emp?.branch_id ?? (isOwner ? null : session.branch_id ?? null),
     };
     let error = '';
 
@@ -60,6 +69,22 @@ export default function Employees({ employees, reloadEmployees, session, isOwner
                 />
               </div>
             </div>
+            {isOwner && (
+              <div className="field">
+                <label>Assigned branch</label>
+                <select
+                  defaultValue={state.branch_id ?? ''}
+                  onChange={(e) => (state.branch_id = e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Unassigned (owner — all branches)</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {error && <div className="errText">{error}</div>}
           </div>
           <footer>
@@ -127,6 +152,7 @@ export default function Employees({ employees, reloadEmployees, session, isOwner
             <tr>
               <th>Name</th>
               <th>Role</th>
+              <th>Branch</th>
               <th>PIN</th>
               <th className="num">Sales (all time)</th>
               <th className="num">Receipts</th>
@@ -143,6 +169,7 @@ export default function Employees({ employees, reloadEmployees, session, isOwner
                 <td>
                   <span className="pill role">{e.role}</span>
                 </td>
+                <td>{e.branch_name || <span style={{ color: 'var(--muted)' }}>All</span>}</td>
                 <td style={{ letterSpacing: '.2em' }}>••••</td>
                 <td className="num">{peso(e.sales_total || 0)}</td>
                 <td className="num">{e.receipts_count || 0}</td>

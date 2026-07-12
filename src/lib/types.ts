@@ -6,12 +6,20 @@ export type StockStatus = 'ok' | 'low' | 'out';
 export type PaymentMethod = 'cash' | 'card';
 export type AdjustReason = 'receive' | 'recount' | 'damage';
 
+export interface Branch {
+  id: number;
+  name: string;
+  address?: string | null;
+}
+
 export interface Employee {
   id: number;
   name: string;
   pin: string; // shown on owner/manager staff screens, so not hidden
   role: Role;
+  branch_id: number | null; // null = owner overseeing all branches
   // employee_overview extras (list endpoint only)
+  branch_name?: string | null;
   receipts_count?: number;
   sales_total?: number;
   last_clock_in?: string | null;
@@ -27,6 +35,7 @@ export interface Item {
   id: number;
   name: string;
   sku: string;
+  branch_id: number;
   category_id: number | null;
   cost: number;
   price: number;
@@ -53,6 +62,8 @@ export interface SaleLine {
 export interface Sale {
   id: number;
   employee_id: number | null;
+  branch_id: number | null;
+  branch?: { id: number; name: string } | null;
   subtotal: number;
   discount_pct: number;
   discount: number;

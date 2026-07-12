@@ -13,7 +13,7 @@ export const POST = handler(async (_request: NextRequest, { params }: Ctx) => {
 
   const { data } = await db()
     .from('sales')
-    .select('*, employee:employees(id, name), items:sale_items(*)')
+    .select('*, employee:employees(id, name), branch:branches(id, name), items:sale_items(*)')
     .eq('id', id)
     .single();
   return NextResponse.json(data);

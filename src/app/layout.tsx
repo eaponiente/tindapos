@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TindaPOS — Point of Sale',
+  title: 'Talabahan sa Calinan — Point of Sale',
   description:
     'Point of sale with unlimited sales history, employee management, and advanced inventory.',
   manifest: '/manifest.webmanifest',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'TindaPOS',
+    title: 'Talabahan',
   },
 };
 
