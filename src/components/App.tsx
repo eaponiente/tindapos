@@ -32,6 +32,18 @@ type Screen = 'sell' | 'history' | 'inventory' | 'categories' | 'employees' | 'b
 const SESSION_KEY = 'tindapos:session';
 // Remembers which screen was open so a refresh returns to the last activity.
 const SCREEN_KEY = 'tindapos:screen';
+// Remembers the owner's last-selected branch across refreshes.
+const BRANCH_KEY = 'tindapos:branch';
+
+// Owners resume on their last-used branch; everyone else is locked to their
+// assigned branch.
+function initialBranch(emp: Employee): number | null {
+  if (roleRank(emp.role) >= 2) {
+    const saved = localStorage.getItem(BRANCH_KEY);
+    if (saved) return Number(saved);
+  }
+  return emp.branch_id ?? null;
+}
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
@@ -104,7 +116,7 @@ function AppShell() {
       if (raw) {
         const emp = JSON.parse(raw) as Employee;
         setSession(emp);
-        setActiveBranchId(emp.branch_id ?? null);
+        setActiveBranchId(initialBranch(emp));
         const savedScreen = localStorage.getItem(SCREEN_KEY) as Screen | null;
         const tab = TABS.find((t) => t.key === savedScreen);
         if (savedScreen && tab && roleRank(emp.role) >= tab.perm) setScreen(savedScreen);
@@ -120,6 +132,11 @@ function AppShell() {
     if (session) localStorage.setItem(SCREEN_KEY, screen);
   }, [screen, session]);
 
+  // Remember the active branch so a refresh stays on the last-used branch.
+  useEffect(() => {
+    if (session && activeBranchId != null) localStorage.setItem(BRANCH_KEY, String(activeBranchId));
+  }, [activeBranchId, session]);
+
   useEffect(() => {
     if (!session) return;
     reloadBranches();
@@ -127,9 +144,13 @@ function AppShell() {
     reloadCategories();
   }, [session, reloadBranches, reloadEmployees, reloadCategories]);
 
-  // An owner with no home branch defaults to the first branch once loaded.
+  // Fall back to the first branch only when we have none yet, or when an owner's
+  // remembered branch no longer exists — never override a valid saved branch.
   useEffect(() => {
-    if (session && activeBranchId == null && branches.length) {
+    if (!session || !branches.length) return;
+    const inList = activeBranchId != null && branches.some((b) => b.id === activeBranchId);
+    const isOwnerEmp = roleRank(session.role) >= 2;
+    if (activeBranchId == null || (isOwnerEmp && !inList)) {
       setActiveBranchId(branches[0].id);
     }
   }, [session, activeBranchId, branches]);
@@ -147,7 +168,7 @@ function AppShell() {
       /* storage unavailable — session just won't survive a refresh */
     }
     setSession(employee);
-    setActiveBranchId(employee.branch_id ?? null);
+    setActiveBranchId(initialBranch(employee));
     setScreen('sell');
   }
 
