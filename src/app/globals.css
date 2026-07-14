@@ -67,6 +67,7 @@ nav#rail{width:88px; background:var(--ink); color:#fff; display:flex; flex-direc
 #rail button.tab svg{width:24px; height:24px;}
 #rail button.tab:hover{background:rgba(255,255,255,.08); color:rgba(255,255,255,.9);}
 #rail button.tab.active{background:var(--gold); color:#241A05;}
+#rail button.railMenu{display:none;} /* mobile-only ☰ menu button; shown in the media query */
 #rail .spacer{flex:1;}
 #rail .userChip{width:68px; text-align:center; font-size:11px; color:rgba(255,255,255,.7); padding:8px 4px; border-radius:12px;}
 #rail .userChip b{display:block; color:#fff; font-size:12px; margin-bottom:2px; word-break:break-word;}
@@ -210,6 +211,16 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   font-weight:600; z-index:70; box-shadow:var(--shadow-lift); animation:toastIn .2s ease;}
 .centerNote{color:var(--muted); text-align:center; padding:40px 20px;}
 
+/* Mobile navigation menu (opened by the ☰ button in the bottom bar) */
+.navMenu{display:flex; flex-direction:column; gap:6px;}
+.navMenuItem{display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:12px;
+  background:var(--paper); border:1px solid var(--line); font-weight:600; font-size:16px; text-align:left;
+  transition:background .12s ease, border-color .12s ease, transform .08s ease;}
+.navMenuItem svg{width:22px; height:22px; color:var(--muted); flex-shrink:0;}
+.navMenuItem:active{transform:scale(.98);}
+.navMenuItem.active{background:var(--gold-tint); border-color:var(--gold); color:var(--gold-dark);}
+.navMenuItem.active svg{color:var(--gold-dark);}
+
 @media (max-width:820px){
   #ticket{width:290px;}
 
@@ -220,13 +231,20 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   .tLine .nm{flex-basis:100%; min-width:0;}
   .tLine .amt{margin-left:auto;}
 }
-@media (max-width:640px){
+/* Narrow screens (portrait phones) OR short screens (phones in landscape, whose
+   width jumps past 640 but whose height stays small) both get the mobile layout:
+   name-over-photo cards, a bottom nav bar, and the bottom-sheet ticket. */
+@media (max-width:640px), (max-height:520px){
   #app{flex-direction:column-reverse;}
   nav#rail{width:100%; flex-direction:row; justify-content:space-around; padding:6px 4px;}
   #rail .logo,#rail .spacer,#rail .userChip,#rail .branchChip{display:none;}
+  /* Collapse the row of page tabs into a single ☰ menu (+ Lock stays). */
+  #rail button.navTab{display:none;}
+  #rail button.railMenu{display:flex;}
 
-  .topbar{padding:12px 14px 6px;}
+  .topbar{padding:12px 14px 8px; flex-wrap:wrap; gap:8px;}
   .topbar h2{font-size:19px;}
+  .topbar .grow{display:none;}
   .search{min-width:0; flex:1;}
 
   /* Sell: product grid gets the whole screen; the ticket becomes a bottom sheet */
@@ -265,5 +283,16 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   .ticketPeek .peekTotal{margin-left:auto; font-variant-numeric:tabular-nums;}
   .ticketPeek .peekGo{font-weight:600; font-size:13px; opacity:.8;}
   #sellBody.ticketOpen .ticketPeek{display:none;}
+
+  /* Admin screens (History, Items, Staff, Categories, Branches): 2-up stat
+     cards and tables that scroll sideways inside their card instead of
+     overflowing the page. */
+  .statRow{padding:0 12px 12px; gap:8px;}
+  .stat{flex:1 1 calc(50% - 4px); min-width:0; padding:10px 14px;}
+  .stat .val{font-size:19px;}
+  .tableWrap{padding:0 12px 16px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .tableWrap table{width:auto; min-width:100%;}
+  .tableWrap th,.tableWrap td{white-space:nowrap;}
+  .branchTag{font-size:12px; padding:3px 10px;}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}

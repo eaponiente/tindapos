@@ -11,6 +11,7 @@ import {
   HistoryIcon,
   ItemsIcon,
   LockIcon,
+  MenuIcon,
   SellIcon,
   StaffIcon,
 } from './Icons';
@@ -187,6 +188,48 @@ function AppShell() {
     );
   }
 
+  // Mobile navigation — the bottom bar can't fit every tab, so a ☰ button opens
+  // this full list of pages (role-filtered) plus Lock.
+  function openMenu() {
+    if (!session) return;
+    openModal(
+      <>
+        <header>
+          <h3>Menu</h3>
+        </header>
+        <div className="bodyPad navMenu">
+          {TABS.filter((t) => roleRank(session.role) >= t.perm).map((t) => (
+            <button
+              key={t.key}
+              className={'navMenuItem' + (screen === t.key ? ' active' : '')}
+              onClick={() => {
+                setScreen(t.key);
+                closeModal();
+              }}
+            >
+              <t.icon />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+        <footer>
+          <button className="btn" onClick={closeModal}>
+            Close
+          </button>
+          <button
+            className="btn danger"
+            onClick={() => {
+              closeModal();
+              handleLock();
+            }}
+          >
+            Lock
+          </button>
+        </footer>
+      </>,
+    );
+  }
+
   // Hold the first paint until we've checked storage, so a logged-in refresh
   // never flashes the lock screen.
   if (!hydrated) return null;
@@ -219,10 +262,14 @@ function AppShell() {
             <span>{activeBranchName}</span>
           </div>
         )}
+        <button className="tab railMenu" onClick={openMenu}>
+          <MenuIcon />
+          Menu
+        </button>
         {TABS.filter((t) => roleRank(session.role) >= t.perm).map((t) => (
           <button
             key={t.key}
-            className={'tab' + (screen === t.key ? ' active' : '')}
+            className={'tab navTab' + (screen === t.key ? ' active' : '')}
             onClick={() => setScreen(t.key)}
           >
             <t.icon />
