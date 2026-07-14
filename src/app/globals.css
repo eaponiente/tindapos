@@ -222,6 +222,9 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 
 /* Mobile navigation menu (opened by the ☰ button in the bottom bar) */
 .navMenu{display:flex; flex-direction:column; gap:6px;}
+.navMenuLabel{font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); margin:6px 2px 0;}
+.navMenuLabel:first-child{margin-top:0;}
 .navMenuItem{display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:12px;
   background:var(--paper); border:1px solid var(--line); font-weight:600; font-size:16px; text-align:left;
   transition:background .12s ease, border-color .12s ease, transform .08s ease;}

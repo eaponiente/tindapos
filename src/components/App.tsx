@@ -209,6 +209,25 @@ function AppShell() {
           <h3>Menu</h3>
         </header>
         <div className="bodyPad navMenu">
+          {isOwner && branches.length > 0 && (
+            <>
+              <div className="navMenuLabel">Branch</div>
+              {branches.map((b) => (
+                <button
+                  key={b.id}
+                  className={'navMenuItem' + (b.id === activeBranchId ? ' active' : '')}
+                  onClick={() => {
+                    setActiveBranchId(b.id);
+                    closeModal();
+                  }}
+                >
+                  <BranchIcon />
+                  <span>{b.name}</span>
+                </button>
+              ))}
+              <div className="navMenuLabel">Pages</div>
+            </>
+          )}
           {TABS.filter((t) => roleRank(session.role) >= t.perm).map((t) => (
             <button
               key={t.key}
