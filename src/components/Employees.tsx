@@ -23,6 +23,8 @@ export default function Employees({
 }: EmployeesProps) {
   const { toast, openModal, closeModal } = useUI();
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const log = (action: string, detail?: string) =>
+    api.logActivity({ actor_id: session.id, actor_name: session.name, action, detail });
 
   useEffect(() => {
     api.shifts().then(setShifts).catch(() => {});
@@ -102,6 +104,7 @@ export default function Employees({
                 onClick={async () => {
                   try {
                     await api.deleteEmployee(emp.id);
+                    log('Removed employee', emp.name);
                     closeModal();
                     reloadEmployees();
                     toast('Employee removed');
@@ -125,8 +128,13 @@ export default function Employees({
                   return;
                 }
                 try {
-                  if (isNew) await api.createEmployee(state);
-                  else await api.updateEmployee(emp.id, state);
+                  if (isNew) {
+                    await api.createEmployee(state);
+                    log('Added employee', `${state.name} — ${state.role}`);
+                  } else {
+                    await api.updateEmployee(emp.id, state);
+                    log('Edited employee', state.name);
+                  }
                   closeModal();
                   reloadEmployees();
                   toast(isNew ? 'Employee added' : 'Employee saved');

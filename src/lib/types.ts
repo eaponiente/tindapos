@@ -12,6 +12,15 @@ export interface Branch {
   address?: string | null;
 }
 
+export interface ActivityLog {
+  id: number;
+  actor_id: number | null;
+  actor_name: string;
+  action: string;
+  detail: string | null;
+  created_at: string;
+}
+
 export interface Employee {
   id: number;
   name: string;
@@ -62,6 +71,7 @@ export interface SaleLine {
 export interface Sale {
   id: number;
   employee_id: number | null;
+  employee_name?: string | null; // snapshot — survives employee deletion
   branch_id: number | null;
   branch?: { id: number; name: string } | null;
   subtotal: number;

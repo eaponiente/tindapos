@@ -1,6 +1,7 @@
 // Typed client for the app's own /api routes. Same origin as the frontend,
 // so there is no base URL to configure and no CORS to worry about.
 import type {
+  ActivityLog,
   AdjustReason,
   Branch,
   Category,
@@ -62,6 +63,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ pin }),
     }),
+
+  activity: () => request<ActivityLog[]>('/activity'),
+  logActivity: (data: { actor_id: number | null; actor_name: string; action: string; detail?: string }) =>
+    request<ActivityLog>('/activity', { method: 'POST', body: JSON.stringify(data) }).catch(() => null),
 
   branches: () => request<Branch[]>('/branches'),
   createBranch: (data: { name: string; address?: string }) =>

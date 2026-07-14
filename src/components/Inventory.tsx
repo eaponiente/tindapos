@@ -38,6 +38,8 @@ export default function Inventory({
   const { toast, openModal, closeModal } = useUI();
   const [q, setQ] = useState('');
   const [stats, setStats] = useState<ItemStats | null>(null);
+  const log = (action: string, detail?: string) =>
+    api.logActivity({ actor_id: employee.id, actor_name: employee.name, action, detail });
 
   useEffect(() => {
     api.itemStats(branchId).then(setStats).catch(() => {});
@@ -295,6 +297,7 @@ export default function Inventory({
                       })
                     : await api.updateItem(item.id, payload);
                   if (imageFile) await api.uploadItemImage(saved.id, imageFile);
+                  log(isNew ? 'Added item' : 'Edited item', `${state.name} (${branchName})`);
                   if (isNew) clearDraft();
                   closeModal();
                   reloadItems();
@@ -361,6 +364,7 @@ export default function Inventory({
                 }
                 try {
                   await api.deleteItem(item.id);
+                  log('Deleted item', item.name);
                   closeModal();
                   reloadItems();
                   toast('Item deleted');
@@ -428,6 +432,7 @@ export default function Inventory({
                 }
                 try {
                   await api.adjustItem(item.id, { reason, qty: n, employee_id: employee.id });
+                  log('Adjusted stock', `${item.name}: ${reason} ${n}`);
                   closeModal();
                   reloadItems();
                   toast('Stock updated');

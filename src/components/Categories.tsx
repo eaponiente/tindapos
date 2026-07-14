@@ -3,15 +3,18 @@
 import React from 'react';
 import { api } from '@/lib/api';
 import { useUI } from './UI';
-import type { Category } from '@/lib/types';
+import type { Category, Employee } from '@/lib/types';
 
 interface CategoriesProps {
   categories: Category[];
   reloadCategories: () => Promise<void>;
+  session: Employee;
 }
 
-export default function Categories({ categories, reloadCategories }: CategoriesProps) {
+export default function Categories({ categories, reloadCategories, session }: CategoriesProps) {
   const { toast, openModal, closeModal } = useUI();
+  const log = (action: string, detail?: string) =>
+    api.logActivity({ actor_id: session.id, actor_name: session.name, action, detail });
 
   function categoryModal(category: Category | null) {
     const isNew = !category;
@@ -53,8 +56,13 @@ export default function Categories({ categories, reloadCategories }: CategoriesP
                   return;
                 }
                 try {
-                  if (isNew) await api.createCategory({ name: state.name });
-                  else await api.updateCategory(category.id, { name: state.name });
+                  if (isNew) {
+                    await api.createCategory({ name: state.name });
+                    log('Added category', state.name);
+                  } else {
+                    await api.updateCategory(category.id, { name: state.name });
+                    log('Edited category', state.name);
+                  }
                   closeModal();
                   reloadCategories();
                   toast(isNew ? 'Category created' : 'Category saved');
@@ -95,6 +103,7 @@ export default function Categories({ categories, reloadCategories }: CategoriesP
             onClick={async () => {
               try {
                 await api.deleteCategory(category.id);
+                log('Deleted category', category.name);
                 closeModal();
                 reloadCategories();
                 toast('Category deleted');

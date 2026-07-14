@@ -205,6 +205,11 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
                   className={'itemCard' + (i.stock <= 0 ? ' out' : '')}
                   onClick={() => addToTicket(i)}
                 >
+                  {i.status !== 'ok' && (
+                    <span className={'stockBadge ' + i.status}>
+                      {i.status === 'out' ? 'Out' : 'Low'}
+                    </span>
+                  )}
                   {i.image_url ? (
                     <img className="swatch img" src={i.image_url} alt="" />
                   ) : (
@@ -310,7 +315,9 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
 export function receiptText(sale: Sale): string {
   let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
-  s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${sale.employee?.name || '—'}\n`;
+  s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${
+    sale.employee?.name || sale.employee_name || '—'
+  }\n`;
   s += '--------------------------------\n';
   sale.items.forEach((l) => {
     s += `${l.qty} x ${l.name}\n`;

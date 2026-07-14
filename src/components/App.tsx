@@ -6,6 +6,7 @@ import { roleRank } from '@/lib/format';
 import type { Branch, Category, Employee, Item } from '@/lib/types';
 import { UIProvider, useUI } from './UI';
 import {
+  ActivityIcon,
   BranchIcon,
   CategoriesIcon,
   HistoryIcon,
@@ -22,9 +23,17 @@ import Inventory from './Inventory';
 import Employees from './Employees';
 import Categories from './Categories';
 import Branches from './Branches';
+import ActivityLogs from './ActivityLogs';
 import AssistiveTouch from './AssistiveTouch';
 
-type Screen = 'sell' | 'history' | 'inventory' | 'categories' | 'employees' | 'branches';
+type Screen =
+  | 'sell'
+  | 'history'
+  | 'inventory'
+  | 'categories'
+  | 'employees'
+  | 'branches'
+  | 'activity';
 
 // Keeps the cashier clocked in across page refreshes. The PIN is already
 // treated as non-secret in this app (shown on staff screens), so persisting
@@ -52,6 +61,7 @@ const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] 
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
   { key: 'employees', label: 'Staff', perm: 1, icon: StaffIcon },
   { key: 'branches', label: 'Branches', perm: 2, icon: BranchIcon },
+  { key: 'activity', label: 'Activity', perm: 2, icon: ActivityIcon },
 ];
 
 function AppShell() {
@@ -367,7 +377,7 @@ function AppShell() {
           />
         )}
         {screen === 'categories' && canManage && (
-          <Categories categories={categories} reloadCategories={reloadCategories} />
+          <Categories categories={categories} reloadCategories={reloadCategories} session={session} />
         )}
         {screen === 'employees' && canManage && (
           <Employees
@@ -379,8 +389,9 @@ function AppShell() {
           />
         )}
         {screen === 'branches' && isOwner && (
-          <Branches branches={branches} reloadBranches={reloadBranches} />
+          <Branches branches={branches} reloadBranches={reloadBranches} session={session} />
         )}
+        {screen === 'activity' && isOwner && <ActivityLogs />}
       </main>
       <AssistiveTouch onOpen={openMenu} />
     </div>

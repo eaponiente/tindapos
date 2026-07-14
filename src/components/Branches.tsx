@@ -3,15 +3,18 @@
 import React from 'react';
 import { api } from '@/lib/api';
 import { useUI } from './UI';
-import type { Branch } from '@/lib/types';
+import type { Branch, Employee } from '@/lib/types';
 
 interface BranchesProps {
   branches: Branch[];
   reloadBranches: () => Promise<void>;
+  session: Employee;
 }
 
-export default function Branches({ branches, reloadBranches }: BranchesProps) {
+export default function Branches({ branches, reloadBranches, session }: BranchesProps) {
   const { toast, openModal, closeModal } = useUI();
+  const log = (action: string, detail?: string) =>
+    api.logActivity({ actor_id: session.id, actor_name: session.name, action, detail });
 
   function branchModal(branch: Branch | null) {
     const isNew = !branch;
@@ -53,8 +56,13 @@ export default function Branches({ branches, reloadBranches }: BranchesProps) {
                 }
                 try {
                   const payload = { name: state.name.trim(), address: state.address.trim() };
-                  if (isNew) await api.createBranch(payload);
-                  else await api.updateBranch(branch.id, payload);
+                  if (isNew) {
+                    await api.createBranch(payload);
+                    log('Added branch', payload.name);
+                  } else {
+                    await api.updateBranch(branch.id, payload);
+                    log('Edited branch', payload.name);
+                  }
                   closeModal();
                   reloadBranches();
                   toast(isNew ? 'Branch created' : 'Branch saved');

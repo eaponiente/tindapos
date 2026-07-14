@@ -52,6 +52,13 @@ export const StaffIcon = () => (
   </svg>
 );
 
+export const ActivityIcon = () => (
+  <svg {...base} aria-hidden>
+    <rect x="5" y="4" width="14" height="17" rx="2" />
+    <path d="M8.5 4.5h7v2h-7zM8.5 11h7M8.5 15h4.5" />
+  </svg>
+);
+
 export const MenuIcon = () => (
   <svg {...base} aria-hidden>
     <path d="M4 7h16M4 12h16M4 17h16" />

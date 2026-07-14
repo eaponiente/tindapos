@@ -263,7 +263,7 @@ export default function History({
                 </td>
                 <td>{fmtDT(s.created_at)}</td>
                 {showBranchColumn && <td>{s.branch?.name || '—'}</td>}
-                <td>{s.employee?.name || '—'}</td>
+                <td>{s.employee?.name || s.employee_name || '—'}</td>
                 <td>{s.items.reduce((a, l) => a + l.qty, 0)}</td>
                 <td className="num">
                   <b>{peso(s.total)}</b>
