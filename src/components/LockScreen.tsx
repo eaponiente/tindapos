@@ -5,19 +5,18 @@ import { api } from '@/lib/api';
 import type { Employee } from '@/lib/types';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'] as const;
+const MAX_PIN = 6;
 
 export default function LockScreen({ onLogin }: { onLogin: (employee: Employee) => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function tryPin(next: string) {
-    setPin(next);
-    setError('');
-    if (next.length !== 4) return;
+  async function submit(value: string) {
+    if (value.length < 4 || busy) return;
     setBusy(true);
     try {
-      const { employee } = await api.login(next);
+      const { employee } = await api.login(value);
       onLogin(employee);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Wrong PIN — try again');
@@ -29,9 +28,13 @@ export default function LockScreen({ onLogin }: { onLogin: (employee: Employee) 
 
   function press(k: string) {
     if (busy) return;
-    if (k === 'clear') return tryPin('');
-    if (k === 'del') return tryPin(pin.slice(0, -1));
-    if (pin.length < 4) tryPin(pin + k);
+    setError('');
+    if (k === 'clear') return setPin('');
+    if (k === 'del') return setPin(pin.slice(0, -1));
+    if (pin.length >= MAX_PIN) return;
+    const next = pin + k;
+    setPin(next);
+    if (next.length === MAX_PIN) submit(next); // full 6-digit PIN auto-submits
   }
 
   return (
@@ -41,7 +44,7 @@ export default function LockScreen({ onLogin }: { onLogin: (employee: Employee) 
       </div>
       <div className="who">{busy ? 'Checking…' : 'Enter your PIN to clock in'}</div>
       <div className="pinDots">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <i key={i} className={i < pin.length ? 'on' : ''} />
         ))}
       </div>
@@ -57,7 +60,14 @@ export default function LockScreen({ onLogin }: { onLogin: (employee: Employee) 
           </button>
         ))}
       </div>
-      <div className="lockHint">Demo PINs — Owner: 1234 · Manager: 2222 · Cashier: 3333</div>
+      <button
+        className="pinEnter"
+        disabled={pin.length < 4 || busy}
+        onClick={() => submit(pin)}
+      >
+        Enter
+      </button>
+      <div className="lockHint">Enter your 4–6 digit PIN, then press Enter.</div>
     </div>
   );
 }

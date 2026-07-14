@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 /** PIN clock-in. Opens a new shift and returns the employee. */
 export const POST = handler(async (request: NextRequest) => {
   const { pin } = await request.json();
-  if (!/^\d{4}$/.test(String(pin ?? ''))) return fail('Enter your 4-digit PIN');
+  if (!/^\d{4,6}$/.test(String(pin ?? ''))) return fail('Enter your 4–6 digit PIN');
 
   const { data: employee } = await db()
     .from('employees')

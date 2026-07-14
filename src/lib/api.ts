@@ -57,6 +57,11 @@ export const api = {
     }),
   logout: (employee_id: number) =>
     request<{ ok: true }>('/logout', { method: 'POST', body: JSON.stringify({ employee_id }) }),
+  authorizeManager: (pin: string) =>
+    request<{ ok: true; name: string; role: string }>('/authorize', {
+      method: 'POST',
+      body: JSON.stringify({ pin }),
+    }),
 
   branches: () => request<Branch[]>('/branches'),
   createBranch: (data: { name: string; address?: string }) =>

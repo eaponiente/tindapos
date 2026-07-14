@@ -38,6 +38,10 @@ export default function Employees({
       branch_id: emp?.branch_id ?? (isOwner ? null : session.branch_id ?? null),
     };
     let error = '';
+    // Managers may not view an owner's or another manager's PIN — only the owner,
+    // the employee's own PIN, new hires, or their own cashiers' PINs are visible.
+    const canSeePin =
+      isNew || isOwner || emp!.id === session.id || emp!.role === 'cashier';
 
     const render = () => {
       openModal(
@@ -60,13 +64,17 @@ export default function Employees({
                 </select>
               </div>
               <div className="field">
-                <label>4-digit PIN</label>
-                <input
-                  inputMode="numeric"
-                  maxLength={4}
-                  defaultValue={state.pin}
-                  onChange={(e) => (state.pin = e.target.value)}
-                />
+                <label>PIN (4–6 digits)</label>
+                {canSeePin ? (
+                  <input
+                    inputMode="numeric"
+                    maxLength={6}
+                    defaultValue={state.pin}
+                    onChange={(e) => (state.pin = e.target.value)}
+                  />
+                ) : (
+                  <input value="•••••• hidden" disabled readOnly title="Hidden from managers" />
+                )}
               </div>
             </div>
             {isOwner && (
@@ -111,8 +119,8 @@ export default function Employees({
             <button
               className="btn primary"
               onClick={async () => {
-                if (!state.name.trim() || !/^\d{4}$/.test(state.pin)) {
-                  error = 'Name and a 4-digit PIN are required';
+                if (!state.name.trim() || !/^\d{4,6}$/.test(state.pin)) {
+                  error = 'Name and a 4–6 digit PIN are required';
                   render();
                   return;
                 }

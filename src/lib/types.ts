@@ -97,6 +97,8 @@ export interface SaleStats {
   receipts_count: number;
   today_total: number;
   all_time_total: number;
+  refunded_count: number;
+  refunded_total: number;
 }
 
 export interface ItemStats {

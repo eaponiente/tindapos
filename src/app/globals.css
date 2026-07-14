@@ -51,6 +51,11 @@ input:focus-visible,select:focus-visible{outline-offset:0;}
 .pinPad button:active{background:rgba(224,169,62,.3); border-color:var(--amber); transform:scale(.94);}
 .pinPad button.ghost{background:transparent; border-color:transparent; font-size:15px; font-weight:500; color:rgba(255,255,255,.72);}
 .pinPad button.ghost:hover{background:rgba(255,255,255,.08); border-color:transparent;}
+.pinEnter{margin-top:2px; padding:12px 46px; border-radius:999px; background:var(--amber); color:#3A2A08;
+  font-weight:800; font-size:16px; transition:background .12s ease, opacity .12s ease, transform .08s ease;}
+.pinEnter:disabled{opacity:.4;}
+.pinEnter:not(:disabled):hover{background:var(--amber-dark);}
+.pinEnter:not(:disabled):active{transform:scale(.97);}
 #lockError{color:#FFD9A8; font-size:14px; min-height:18px;}
 .lockHint{font-size:13px; opacity:.7; max-width:280px; text-align:center;}
 
@@ -165,6 +170,7 @@ tr.rowBtn{cursor:pointer;} tr.rowBtn:active{background:var(--paper);}
 td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .pill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:12.5px; font-weight:700;}
 .pill.ok{background:var(--gold-tint); color:#6E5014;}
+.pill.gcash{background:#0070E0; color:#fff;}
 .pill.low{background:#FBEAE1; color:#A33B2E;}
 .pill.out{background:#F0EEE8; color:var(--muted);}
 .pill.refund{background:#FBEAE1; color:#A33B2E;}
@@ -211,6 +217,9 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   font-weight:600; z-index:70; box-shadow:var(--shadow-lift); animation:toastIn .2s ease;}
 .centerNote{color:var(--muted); text-align:center; padding:40px 20px;}
 
+/* AssistiveTouch floating menu button — hidden on desktop, shown on mobile */
+.assistiveTouch{display:none;}
+
 /* Mobile navigation menu (opened by the ☰ button in the bottom bar) */
 .navMenu{display:flex; flex-direction:column; gap:6px;}
 .navMenuItem{display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:12px;
@@ -241,6 +250,15 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   /* Collapse the row of page tabs into a single ☰ menu (+ Lock stays). */
   #rail button.navTab{display:none;}
   #rail button.railMenu{display:flex;}
+
+  /* Floating draggable menu button (iOS AssistiveTouch style) */
+  .assistiveTouch{position:fixed; z-index:44; width:54px; height:54px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; touch-action:none;
+    background:rgba(25,20,16,.8); color:var(--amber); border:1.5px solid rgba(224,169,62,.55);
+    box-shadow:0 4px 16px rgba(0,0,0,.4); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    transition:transform .08s ease, background .12s ease;}
+  .assistiveTouch:active{transform:scale(.9); background:rgba(25,20,16,.95);}
+  .assistiveTouch svg{width:26px; height:26px;}
 
   .topbar{padding:12px 14px 8px; flex-wrap:wrap; gap:8px;}
   .topbar h2{font-size:19px;}

@@ -15,7 +15,13 @@ interface HistoryProps {
   branchId: number | null; // a non-owner is locked to this branch
 }
 
-export default function History({ employees, canManage, isOwner, branches, branchId }: HistoryProps) {
+export default function History({
+  employees,
+  canManage,
+  isOwner,
+  branches,
+  branchId,
+}: HistoryProps) {
   const { toast, openModal, closeModal } = useUI();
   const [q, setQ] = useState('');
   const [empFilter, setEmpFilter] = useState('');
@@ -74,7 +80,7 @@ export default function History({ employees, canManage, isOwner, branches, branc
           <pre className="receipt">{receiptText(sale)}</pre>
         </div>
         <footer>
-          {!sale.refunded && canManage && (
+          {!sale.refunded && (
             <button className="btn danger" onClick={() => confirmRefund(sale)}>
               Refund
             </button>
@@ -96,39 +102,62 @@ export default function History({ employees, canManage, isOwner, branches, branc
   }
 
   function confirmRefund(sale: Sale) {
-    openModal(
-      <>
-        <header>
-          <h3>Refund receipt #{sale.id}?</h3>
-        </header>
-        <div className="bodyPad">
-          <p style={{ margin: 0 }}>
-            This refunds <b>{peso(sale.total)}</b> and returns the items to stock.
-            This can&apos;t be undone.
-          </p>
-        </div>
-        <footer>
-          <button className="btn" onClick={() => openReceipt(sale)}>
-            Cancel
-          </button>
-          <button
-            className="btn danger"
-            onClick={async () => {
-              try {
-                await api.refundSale(sale.id);
-                closeModal();
-                toast(`Receipt #${sale.id} refunded — stock returned`);
-                load();
-              } catch (e) {
-                toast(e instanceof Error ? e.message : 'Something went wrong');
-              }
-            }}
-          >
-            Confirm refund
-          </button>
-        </footer>
-      </>,
-    );
+    // A cashier can refund, but must enter a manager's or owner's PIN to authorize it.
+    const needsPin = !canManage;
+    let pin = '';
+    let error = '';
+
+    const render = () => {
+      openModal(
+        <>
+          <header>
+            <h3>Refund receipt #{sale.id}?</h3>
+          </header>
+          <div className="bodyPad">
+            <p style={{ marginTop: 0 }}>
+              This refunds <b>{peso(sale.total)}</b> and returns the items to stock. This can&apos;t
+              be undone.
+            </p>
+            {needsPin && (
+              <div className="field">
+                <label>Manager or owner PIN required</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoFocus
+                  onChange={(e) => (pin = e.target.value)}
+                />
+              </div>
+            )}
+            {error && <div className="errText">{error}</div>}
+          </div>
+          <footer>
+            <button className="btn" onClick={() => openReceipt(sale)}>
+              Cancel
+            </button>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                try {
+                  if (needsPin) await api.authorizeManager(pin); // throws if not manager/owner
+                  await api.refundSale(sale.id);
+                  closeModal();
+                  toast(`Receipt #${sale.id} refunded — stock returned`);
+                  load();
+                } catch (e) {
+                  error = e instanceof Error ? e.message : 'Something went wrong';
+                  render();
+                }
+              }}
+            >
+              Confirm refund
+            </button>
+          </footer>
+        </>,
+      );
+    };
+    render();
   }
 
   function openReports() {
@@ -192,6 +221,18 @@ export default function History({ employees, canManage, isOwner, branches, branc
             <div className="lbl">All-time sales</div>
             <div className="val">{peso(stats.all_time_total)}</div>
           </div>
+          <div className="stat">
+            <div className="lbl">Refunds</div>
+            <div className="val" style={{ color: stats.refunded_count ? 'var(--danger)' : 'inherit' }}>
+              {peso(stats.refunded_total)}
+              {stats.refunded_count ? (
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
+                  {' '}
+                  ({stats.refunded_count})
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
       <div className="tableWrap">
@@ -231,7 +272,7 @@ export default function History({ employees, canManage, isOwner, branches, branc
                   {s.refunded ? (
                     <span className="pill refund">Refunded</span>
                   ) : (
-                    <span className="pill ok">
+                    <span className={'pill ' + (s.payment_method === 'cash' ? 'ok' : 'gcash')}>
                       {s.payment_method === 'cash' ? 'Cash' : 'GCash'}
                     </span>
                   )}

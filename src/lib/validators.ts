@@ -6,7 +6,7 @@ const REASONS = ['receive', 'recount', 'damage'];
 
 export function validateEmployee(body: Record<string, unknown>): string | null {
   if (!String(body.name ?? '').trim()) return 'Name is required';
-  if (!/^\d{4}$/.test(String(body.pin ?? ''))) return 'PIN must be exactly 4 digits';
+  if (!/^\d{4,6}$/.test(String(body.pin ?? ''))) return 'PIN must be 4 to 6 digits';
   if (!ROLES.includes(String(body.role))) return 'Invalid role';
   return null;
 }

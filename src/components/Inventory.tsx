@@ -333,11 +333,11 @@ export default function Inventory({
               <input
                 type="password"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={6}
                 autoFocus
                 defaultValue={pin}
                 onChange={(e) => {
-                  pin = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  pin = e.target.value.replace(/\D/g, '').slice(0, 6);
                   if (error) {
                     error = '';
                     render();

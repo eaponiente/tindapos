@@ -22,6 +22,7 @@ import Inventory from './Inventory';
 import Employees from './Employees';
 import Categories from './Categories';
 import Branches from './Branches';
+import AssistiveTouch from './AssistiveTouch';
 
 type Screen = 'sell' | 'history' | 'inventory' | 'categories' | 'employees' | 'branches';
 
@@ -29,6 +30,8 @@ type Screen = 'sell' | 'history' | 'inventory' | 'categories' | 'employees' | 'b
 // treated as non-secret in this app (shown on staff screens), so persisting
 // the session here matches the existing trust model.
 const SESSION_KEY = 'tindapos:session';
+// Remembers which screen was open so a refresh returns to the last activity.
+const SCREEN_KEY = 'tindapos:screen';
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
@@ -102,12 +105,20 @@ function AppShell() {
         const emp = JSON.parse(raw) as Employee;
         setSession(emp);
         setActiveBranchId(emp.branch_id ?? null);
+        const savedScreen = localStorage.getItem(SCREEN_KEY) as Screen | null;
+        const tab = TABS.find((t) => t.key === savedScreen);
+        if (savedScreen && tab && roleRank(emp.role) >= tab.perm) setScreen(savedScreen);
       }
     } catch {
       /* ignore a corrupted session — user just logs in again */
     }
     setHydrated(true);
   }, []);
+
+  // Remember the current screen so a refresh lands back on the last activity.
+  useEffect(() => {
+    if (session) localStorage.setItem(SCREEN_KEY, screen);
+  }, [screen, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -331,6 +342,7 @@ function AppShell() {
           <Branches branches={branches} reloadBranches={reloadBranches} />
         )}
       </main>
+      <AssistiveTouch onOpen={openMenu} />
     </div>
   );
 }
