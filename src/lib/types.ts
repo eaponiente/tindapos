@@ -109,6 +109,10 @@ export interface SaleStats {
   all_time_total: number;
   refunded_count: number;
   refunded_total: number;
+  cash_total: number;
+  cash_count: number;
+  gcash_total: number;
+  gcash_count: number;
 }
 
 export interface ItemStats {

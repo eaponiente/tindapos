@@ -222,6 +222,26 @@ export default function History({
             <div className="val">{peso(stats.all_time_total)}</div>
           </div>
           <div className="stat">
+            <div className="lbl">Cash</div>
+            <div className="val">
+              {peso(stats.cash_total)}
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
+                {' '}
+                ({stats.cash_count})
+              </span>
+            </div>
+          </div>
+          <div className="stat">
+            <div className="lbl">GCash</div>
+            <div className="val" style={{ color: '#0070E0' }}>
+              {peso(stats.gcash_total)}
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
+                {' '}
+                ({stats.gcash_count})
+              </span>
+            </div>
+          </div>
+          <div className="stat">
             <div className="lbl">Refunds</div>
             <div className="val" style={{ color: stats.refunded_count ? 'var(--danger)' : 'inherit' }}>
               {peso(stats.refunded_total)}

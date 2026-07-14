@@ -17,9 +17,32 @@ export const GET = handler(async (request: NextRequest) => {
   const { data: refunds, count } = await refundQuery;
   const refunded_total = (refunds ?? []).reduce((s, r) => s + Number(r.total), 0);
 
+  // Split non-refunded sales by payment method for separate Cash / GCash tallies.
+  let paidQuery = db().from('sales').select('payment_method, total').eq('refunded', false);
+  if (branchNum) paidQuery = paidQuery.eq('branch_id', branchNum);
+  const { data: paid } = await paidQuery;
+  let cash_total = 0;
+  let cash_count = 0;
+  let gcash_total = 0;
+  let gcash_count = 0;
+  for (const s of paid ?? []) {
+    if (s.payment_method === 'cash') {
+      cash_total += Number(s.total);
+      cash_count += 1;
+    } else {
+      gcash_total += Number(s.total);
+      gcash_count += 1;
+    }
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+
   return NextResponse.json({
     ...data,
     refunded_count: count ?? 0,
-    refunded_total: Math.round(refunded_total * 100) / 100,
+    refunded_total: round(refunded_total),
+    cash_total: round(cash_total),
+    cash_count,
+    gcash_total: round(gcash_total),
+    gcash_count,
   });
 });
