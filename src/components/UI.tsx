@@ -9,9 +9,14 @@ import React, {
   type ReactNode,
 } from 'react';
 
+interface ModalOpts {
+  /** Widens the dialog — for content like the sales preview table. */
+  wide?: boolean;
+}
+
 interface UIContext {
   toast: (msg: string) => void;
-  openModal: (content: ReactNode) => void;
+  openModal: (content: ReactNode, opts?: ModalOpts) => void;
   closeModal: () => void;
 }
 
@@ -25,7 +30,7 @@ export function useUI(): UIContext {
 
 export function UIProvider({ children }: { children: ReactNode }) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ content: ReactNode } | null>(null);
+  const [modal, setModal] = useState<{ content: ReactNode; opts?: ModalOpts } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const toast = useCallback((msg: string) => {
@@ -34,7 +39,10 @@ export function UIProvider({ children }: { children: ReactNode }) {
     toastTimer.current = setTimeout(() => setToastMsg(null), 2400);
   }, []);
 
-  const openModal = useCallback((content: ReactNode) => setModal({ content }), []);
+  const openModal = useCallback(
+    (content: ReactNode, opts?: ModalOpts) => setModal({ content, opts }),
+    [],
+  );
   const closeModal = useCallback(() => setModal(null), []);
 
   return (
@@ -45,7 +53,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
           id="overlay"
           onClick={(e) => (e.target as HTMLElement).id === 'overlay' && closeModal()}
         >
-          <div className="modal" role="dialog" aria-modal>
+          <div className={'modal' + (modal.opts?.wide ? ' wide' : '')} role="dialog" aria-modal>
             {modal.content}
           </div>
         </div>

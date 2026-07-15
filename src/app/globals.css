@@ -190,6 +190,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   animation:fadeIn .15s ease;}
 .modal{background:var(--panel); border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,.25); width:min(480px,100%); max-height:90dvh; display:flex; flex-direction:column;
   animation:popIn .18s cubic-bezier(.2,.9,.3,1.1);}
+.modal.wide{width:min(920px,100%);}
 .modal header{padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center;}
 .modal header h3{flex:1; font-size:18px;}
 .modal .bodyPad{padding:16px 20px; overflow-y:auto;}
@@ -223,6 +224,12 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 
 /* AssistiveTouch floating menu button — hidden on desktop, shown on mobile */
 .assistiveTouch{display:none;}
+
+/* Read-only sales preview table (Sales History → Preview) */
+.previewWrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px;}
+.previewWrap table{box-shadow:none; border-radius:0;}
+.previewWrap th,.previewWrap td{padding:8px 10px; font-size:13px; white-space:nowrap;}
+.previewWrap tr.rfd td{color:var(--danger); text-decoration:line-through;}
 
 /* Mobile navigation menu (opened by the ☰ button in the bottom bar) */
 .navMenu{display:flex; flex-direction:column; gap:6px;}

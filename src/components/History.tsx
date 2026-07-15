@@ -161,7 +161,18 @@ export default function History({
   }
 
   function openReports() {
-    openModal(<ReportsModal onClose={closeModal} notify={toast} employees={employees} />);
+    openModal(
+      <ReportsModal
+        onClose={closeModal}
+        notify={toast}
+        employees={employees}
+        branchId={scopedBranchId}
+      />,
+    );
+  }
+
+  function openPreview() {
+    openModal(<PreviewModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
   }
 
   return (
@@ -203,6 +214,9 @@ export default function History({
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <button className="btn" onClick={openPreview}>
+          👁 Preview
+        </button>
         <button className="btn" onClick={openReports}>
           🖨 Reports
         </button>
@@ -313,11 +327,19 @@ export default function History({
 
 /** Sales come back newest-first, so we page from the top and stop as soon as we
  *  pass the period's start — no date filter needed on the API. */
-async function fetchSalesInRange(startMs: number, employeeId?: string): Promise<Sale[]> {
+async function fetchSalesInRange(
+  startMs: number,
+  employeeId?: string,
+  branchId?: number,
+): Promise<Sale[]> {
   const out: Sale[] = [];
   let pageNum = 1;
   for (let guard = 0; guard < 200; guard++) {
-    const p = await api.sales({ page: pageNum, employee_id: employeeId || undefined });
+    const p = await api.sales({
+      page: pageNum,
+      employee_id: employeeId || undefined,
+      branch_id: branchId,
+    });
     for (const s of p.data) {
       if (new Date(s.created_at).getTime() >= startMs) out.push(s);
     }
@@ -395,14 +417,146 @@ function buildReportHtml(title: string, periodLabel: string, sales: Sale[], scop
   return html;
 }
 
+/** Read-only on-screen version of the printed report: the same transaction
+ *  table, filterable by period and payment method. */
+function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
+  const [period, setPeriod] = useState<'today' | 'month'>('today');
+  const [payment, setPayment] = useState<'all' | 'cash' | 'gcash'>('all');
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const now = new Date();
+    let startMs: number;
+    if (period === 'today') {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      startMs = d.getTime();
+    } else {
+      startMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    }
+    fetchSalesInRange(startMs, undefined, branchId)
+      .then((rows) => !cancelled && setSales(rows))
+      .catch(() => !cancelled && setSales([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [period, branchId]);
+
+  const rows = sales
+    .filter(
+      (s) =>
+        payment === 'all' ||
+        (payment === 'cash' ? s.payment_method === 'cash' : s.payment_method === 'card'),
+    )
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const valid = rows.filter((s) => !s.refunded);
+  const total = valid.reduce((a, s) => a + (Number(s.total) || 0), 0);
+  const itemsSold = valid.reduce((a, s) => a + s.items.reduce((b, l) => b + l.qty, 0), 0);
+  const sel = (active: boolean) => (active ? 'sel' : '');
+
+  return (
+    <>
+      <header>
+        <h3>Sales preview</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="payBtns" style={{ marginTop: 0 }}>
+          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
+            📅 Today
+          </button>
+          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
+            🗓 This month
+          </button>
+        </div>
+        <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr 1fr', margin: '0 0 12px' }}>
+          <button className={sel(payment === 'all')} onClick={() => setPayment('all')}>
+            All
+          </button>
+          <button className={sel(payment === 'cash')} onClick={() => setPayment('cash')}>
+            Cash
+          </button>
+          <button className={sel(payment === 'gcash')} onClick={() => setPayment('gcash')}>
+            GCash
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="centerNote">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="centerNote">No sales for this selection.</div>
+        ) : (
+          <div className="previewWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Receipt</th>
+                  <th>Date &amp; time</th>
+                  <th>Cashier</th>
+                  <th className="num">Items</th>
+                  <th>Payment</th>
+                  <th className="num">Total</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => (
+                  <tr key={s.id} className={s.refunded ? 'rfd' : ''}>
+                    <td>
+                      <b>#{s.id}</b>
+                    </td>
+                    <td>{fmtDT(s.created_at)}</td>
+                    <td>{s.employee?.name || s.employee_name || '—'}</td>
+                    <td className="num">{s.items.reduce((a, l) => a + l.qty, 0)}</td>
+                    <td>{s.payment_method === 'cash' ? 'Cash' : 'GCash'}</td>
+                    <td className="num">{peso(s.total)}</td>
+                    <td>{s.refunded ? 'Refunded' : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && rows.length > 0 && (
+          <>
+            <div className="totRow" style={{ marginTop: 10 }}>
+              <span>Receipts</span>
+              <b>{valid.length}</b>
+            </div>
+            <div className="totRow">
+              <span>Items sold</span>
+              <b>{itemsSold}</b>
+            </div>
+            <div className="totRow grand">
+              <span>Total</span>
+              <span>{peso(total)}</span>
+            </div>
+          </>
+        )}
+      </div>
+      <footer>
+        <button className="btn" onClick={onClose}>
+          Close
+        </button>
+      </footer>
+    </>
+  );
+}
+
 function ReportsModal({
   onClose,
   notify,
   employees,
+  branchId,
 }: {
   onClose: () => void;
   notify: (m: string) => void;
   employees: Employee[];
+  branchId?: number;
 }) {
   const [busy, setBusy] = useState<'daily' | 'monthly' | null>(null);
   const [empId, setEmpId] = useState('');
@@ -427,7 +581,7 @@ function ReportsModal({
       }
       const emp = employees.find((e) => String(e.id) === empId);
       const scope = emp ? emp.name : 'All employees';
-      const sales = await fetchSalesInRange(startMs, empId);
+      const sales = await fetchSalesInRange(startMs, empId, branchId);
       if (sales.length === 0) {
         notify(
           `No sales for ${kind === 'daily' ? 'today' : 'this month'}${emp ? ' by ' + emp.name : ''} yet`,
