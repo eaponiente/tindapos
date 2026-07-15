@@ -44,6 +44,9 @@ export default function Employees({
     // the employee's own PIN, new hires, or their own cashiers' PINs are visible.
     const canSeePin =
       isNew || isOwner || emp!.id === session.id || emp!.role === 'cashier';
+    // You can never remove yourself, and a manager may not remove an owner.
+    const canRemove =
+      !isNew && emp!.id !== session.id && (isOwner || emp!.role !== 'owner');
 
     const render = () => {
       openModal(
@@ -98,13 +101,13 @@ export default function Employees({
             {error && <div className="errText">{error}</div>}
           </div>
           <footer>
-            {!isNew && emp.id !== session.id && (
+            {canRemove && (
               <button
                 className="btn danger"
                 onClick={async () => {
                   try {
-                    await api.deleteEmployee(emp.id);
-                    log('Removed employee', emp.name);
+                    await api.deleteEmployee(emp!.id);
+                    log('Removed employee', emp!.name);
                     closeModal();
                     reloadEmployees();
                     toast('Employee removed');
