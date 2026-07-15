@@ -275,7 +275,10 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   /* Sell: product grid gets the whole screen; the ticket becomes a bottom sheet */
   #sellBody{position:relative; flex-direction:column;}
   .catTabs{padding:2px 12px 8px;}
-  #grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; padding:4px 12px 84px;}
+  /* grid-auto-rows:max-content stops the square (aspect-ratio) cards from
+     collapsing to a sliver when the grid is short — i.e. in landscape. */
+  #grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); grid-auto-rows:max-content;
+    gap:10px; padding:4px 12px 84px;}
 
   /* Small screens: the photo fills the tile and the name/price overlay its
      bottom on a gradient scrim, so the name is always visible without pushing
