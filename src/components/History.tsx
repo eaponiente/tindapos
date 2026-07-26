@@ -420,25 +420,39 @@ function buildReportHtml(title: string, periodLabel: string, sales: Sale[], scop
 /** Read-only on-screen version of the printed report: the same transaction
  *  table, filterable by period and payment method. */
 function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
-  const [period, setPeriod] = useState<'today' | 'month' | 'ytd'>('today');
+  const isoDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = isoDate(new Date());
+  const [period, setPeriod] = useState<'today' | 'month' | 'range'>('today');
+  const [fromStr, setFromStr] = useState(today);
+  const [toStr, setToStr] = useState(today);
   const [payment, setPayment] = useState<'all' | 'cash' | 'gcash'>('all');
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Start of the selected window (all periods run through "now").
-  const startMs = (() => {
+  // Start/end of the selected window. Sales are fetched from startMs; endMs
+  // only bounds a custom From–To range.
+  const bounds = () => {
     const now = new Date();
-    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    if (period === 'ytd') return new Date(now.getFullYear(), 0, 1).getTime();
+    if (period === 'month')
+      return { startMs: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), endMs: Infinity };
+    if (period === 'range') {
+      const a = fromStr <= toStr ? fromStr : toStr; // tolerate reversed picks
+      const b = fromStr <= toStr ? toStr : fromStr;
+      return {
+        startMs: new Date(`${a}T00:00:00`).getTime(),
+        endMs: new Date(`${b}T00:00:00`).getTime() + 24 * 3600 * 1000,
+      };
+    }
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  })();
+    return { startMs: d.getTime(), endMs: Infinity };
+  };
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchSalesInRange(startMs, undefined, branchId)
+    fetchSalesInRange(bounds().startMs, undefined, branchId)
       .then((rows) => !cancelled && setSales(rows))
       .catch(() => !cancelled && setSales([]))
       .finally(() => !cancelled && setLoading(false));
@@ -446,14 +460,18 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, branchId]);
+  }, [period, fromStr, toStr, branchId]);
 
+  const { startMs, endMs } = bounds();
   const rows = sales
-    .filter(
-      (s) =>
+    .filter((s) => {
+      const t = new Date(s.created_at).getTime();
+      if (t < startMs || t >= endMs) return false;
+      return (
         payment === 'all' ||
-        (payment === 'cash' ? s.payment_method === 'cash' : s.payment_method === 'card'),
-    )
+        (payment === 'cash' ? s.payment_method === 'cash' : s.payment_method === 'card')
+      );
+    })
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const valid = rows.filter((s) => !s.refunded);
   const total = valid.reduce((a, s) => a + (Number(s.total) || 0), 0);
@@ -473,10 +491,33 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
           <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
             🗓 Month
           </button>
-          <button className={sel(period === 'ytd')} onClick={() => setPeriod('ytd')}>
-            📆 Year to date
+          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
+            📆 Date range
           </button>
         </div>
+        {period === 'range' && (
+          <div className="fieldRow" style={{ margin: '10px 0 0' }}>
+            <div className="field">
+              <label>From</label>
+              <input
+                type="date"
+                value={fromStr}
+                max={today}
+                onChange={(e) => e.target.value && setFromStr(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>To</label>
+              <input
+                type="date"
+                value={toStr}
+                min={fromStr}
+                max={today}
+                onChange={(e) => e.target.value && setToStr(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
         <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr 1fr', margin: '0 0 12px' }}>
           <button className={sel(payment === 'all')} onClick={() => setPayment('all')}>
             All
