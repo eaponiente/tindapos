@@ -420,33 +420,25 @@ function buildReportHtml(title: string, periodLabel: string, sales: Sale[], scop
 /** Read-only on-screen version of the printed report: the same transaction
  *  table, filterable by period and payment method. */
 function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
-  const isoDate = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const [period, setPeriod] = useState<'today' | 'month' | 'date'>('today');
-  const [dateStr, setDateStr] = useState(() => isoDate(new Date()));
+  const [period, setPeriod] = useState<'today' | 'month' | 'ytd'>('today');
   const [payment, setPayment] = useState<'all' | 'cash' | 'gcash'>('all');
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Start/end of the selected window. Sales are fetched from startMs; the
-  // endMs bound only matters for a specific date (a single day).
-  const bounds = () => {
+  // Start of the selected window (all periods run through "now").
+  const startMs = (() => {
     const now = new Date();
-    if (period === 'month')
-      return { startMs: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), endMs: Infinity };
-    if (period === 'date') {
-      const start = new Date(`${dateStr}T00:00:00`).getTime();
-      return { startMs: start, endMs: start + 24 * 3600 * 1000 };
-    }
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    if (period === 'ytd') return new Date(now.getFullYear(), 0, 1).getTime();
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
-    return { startMs: d.getTime(), endMs: Infinity };
-  };
+    return d.getTime();
+  })();
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchSalesInRange(bounds().startMs, undefined, branchId)
+    fetchSalesInRange(startMs, undefined, branchId)
       .then((rows) => !cancelled && setSales(rows))
       .catch(() => !cancelled && setSales([]))
       .finally(() => !cancelled && setLoading(false));
@@ -454,18 +446,14 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, dateStr, branchId]);
+  }, [period, branchId]);
 
-  const { startMs, endMs } = bounds();
   const rows = sales
-    .filter((s) => {
-      const t = new Date(s.created_at).getTime();
-      if (t < startMs || t >= endMs) return false;
-      return (
+    .filter(
+      (s) =>
         payment === 'all' ||
-        (payment === 'cash' ? s.payment_method === 'cash' : s.payment_method === 'card')
-      );
-    })
+        (payment === 'cash' ? s.payment_method === 'cash' : s.payment_method === 'card'),
+    )
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const valid = rows.filter((s) => !s.refunded);
   const total = valid.reduce((a, s) => a + (Number(s.total) || 0), 0);
@@ -485,21 +473,10 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
           <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
             🗓 Month
           </button>
-          <button className={sel(period === 'date')} onClick={() => setPeriod('date')}>
-            📆 Pick date
+          <button className={sel(period === 'ytd')} onClick={() => setPeriod('ytd')}>
+            📆 Year to date
           </button>
         </div>
-        {period === 'date' && (
-          <div className="field" style={{ margin: '10px 0 0' }}>
-            <label>Choose date</label>
-            <input
-              type="date"
-              value={dateStr}
-              max={isoDate(new Date())}
-              onChange={(e) => e.target.value && setDateStr(e.target.value)}
-            />
-          </div>
-        )}
         <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr 1fr', margin: '0 0 12px' }}>
           <button className={sel(payment === 'all')} onClick={() => setPayment('all')}>
             All
