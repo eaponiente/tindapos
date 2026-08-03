@@ -65,6 +65,7 @@ export const api = {
     }),
 
   activity: () => request<ActivityLog[]>('/activity'),
+  clearActivity: () => request<{ ok: true }>('/activity', { method: 'DELETE' }),
   logActivity: (data: { actor_id: number | null; actor_name: string; action: string; detail?: string }) =>
     request<ActivityLog>('/activity', { method: 'POST', body: JSON.stringify(data) }).catch(() => null),
 

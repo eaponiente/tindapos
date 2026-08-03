@@ -14,6 +14,13 @@ export const GET = handler(async () => {
   return NextResponse.json(data ?? []);
 });
 
+/** Clears the entire activity log (owner action). */
+export const DELETE = handler(async () => {
+  const { error } = await db().from('activity_logs').delete().gte('id', 0);
+  if (error) return fail(error.message, 500);
+  return NextResponse.json({ ok: true });
+});
+
 export const POST = handler(async (request: NextRequest) => {
   const body = await request.json();
   if (!String(body.action ?? '').trim()) return fail('action is required');

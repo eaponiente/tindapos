@@ -7,7 +7,7 @@ import { useUI } from './UI';
 import type { ActivityLog } from '@/lib/types';
 
 export default function ActivityLogs() {
-  const { toast } = useUI();
+  const { toast, openModal, closeModal } = useUI();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,10 +20,52 @@ export default function ActivityLogs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function confirmClear() {
+    openModal(
+      <>
+        <header>
+          <h3>Clear activity log?</h3>
+        </header>
+        <div className="bodyPad">
+          <p style={{ margin: 0 }}>
+            This permanently deletes all {logs.length}{' '}
+            {logs.length === 1 ? 'entry' : 'entries'}. This can&apos;t be undone.
+          </p>
+        </div>
+        <footer>
+          <button className="btn" onClick={closeModal}>
+            Cancel
+          </button>
+          <button
+            className="btn danger"
+            onClick={async () => {
+              try {
+                await api.clearActivity();
+                closeModal();
+                setLogs([]);
+                toast('Activity log cleared');
+              } catch (e) {
+                toast(e instanceof Error ? e.message : 'Something went wrong');
+              }
+            }}
+          >
+            Clear all
+          </button>
+        </footer>
+      </>,
+    );
+  }
+
   return (
     <section className="screen">
       <div className="topbar">
         <h2>Activity log</h2>
+        <div className="grow"></div>
+        {logs.length > 0 && (
+          <button className="btn danger" onClick={confirmClear}>
+            Clear log
+          </button>
+        )}
       </div>
       <div className="tableWrap">
         <table>
