@@ -21,39 +21,56 @@ export default function ActivityLogs() {
   }, []);
 
   function confirmClear() {
-    openModal(
-      <>
-        <header>
-          <h3>Clear activity log?</h3>
-        </header>
-        <div className="bodyPad">
-          <p style={{ margin: 0 }}>
-            This permanently deletes all {logs.length}{' '}
-            {logs.length === 1 ? 'entry' : 'entries'}. This can&apos;t be undone.
-          </p>
-        </div>
-        <footer>
-          <button className="btn" onClick={closeModal}>
-            Cancel
-          </button>
-          <button
-            className="btn danger"
-            onClick={async () => {
-              try {
-                await api.clearActivity();
-                closeModal();
-                setLogs([]);
-                toast('Activity log cleared');
-              } catch (e) {
-                toast(e instanceof Error ? e.message : 'Something went wrong');
-              }
-            }}
-          >
-            Clear all
-          </button>
-        </footer>
-      </>,
-    );
+    let pin = '';
+    let error = '';
+    const render = () => {
+      openModal(
+        <>
+          <header>
+            <h3>Clear activity log?</h3>
+          </header>
+          <div className="bodyPad">
+            <p style={{ marginTop: 0 }}>
+              This permanently deletes all {logs.length}{' '}
+              {logs.length === 1 ? 'entry' : 'entries'}. This can&apos;t be undone.
+            </p>
+            <div className="field">
+              <label>Owner PIN required</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                onChange={(e) => (pin = e.target.value)}
+              />
+            </div>
+            {error && <div className="errText">{error}</div>}
+          </div>
+          <footer>
+            <button className="btn" onClick={closeModal}>
+              Cancel
+            </button>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                try {
+                  await api.clearActivity(pin); // server rejects a non-owner PIN
+                  closeModal();
+                  setLogs([]);
+                  toast('Activity log cleared');
+                } catch (e) {
+                  error = e instanceof Error ? e.message : 'Something went wrong';
+                  render();
+                }
+              }}
+            >
+              Clear all
+            </button>
+          </footer>
+        </>,
+      );
+    };
+    render();
   }
 
   return (

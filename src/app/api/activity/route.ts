@@ -14,8 +14,18 @@ export const GET = handler(async () => {
   return NextResponse.json(data ?? []);
 });
 
-/** Clears the entire activity log (owner action). */
-export const DELETE = handler(async () => {
+/** Clears the entire activity log. Requires a valid owner PIN in the body. */
+export const DELETE = handler(async (request: NextRequest) => {
+  const { pin } = await request.json().catch(() => ({ pin: '' }));
+  const { data: emp } = await db()
+    .from('employees')
+    .select('role')
+    .eq('pin', String(pin ?? ''))
+    .maybeSingle();
+  if (!emp || emp.role !== 'owner') {
+    return fail('An owner PIN is required to clear the log', 403);
+  }
+
   const { error } = await db().from('activity_logs').delete().gte('id', 0);
   if (error) return fail(error.message, 500);
   return NextResponse.json({ ok: true });
