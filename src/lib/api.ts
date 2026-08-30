@@ -104,6 +104,8 @@ export const api = {
   updateItem: (id: number, data: Partial<Item>) =>
     request<Item>(`/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteItem: (id: number) => request<{ ok: true }>(`/items/${id}`, { method: 'DELETE' }),
+  reorderItems: (ids: number[]) =>
+    request<{ ok: true }>('/items/reorder', { method: 'PUT', body: JSON.stringify({ ids }) }),
   adjustItem: (id: number, data: { reason: AdjustReason; qty: number; employee_id: number }) =>
     request<Item>(`/items/${id}/adjust`, { method: 'POST', body: JSON.stringify(data) }),
   uploadItemImage: (id: number, file: File) => {
