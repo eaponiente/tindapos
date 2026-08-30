@@ -90,6 +90,9 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
 
   function openPayment() {
     let method: PaymentMethod = 'cash';
+    // One key per checkout attempt — reused if the request is retried, so a
+    // double-tap or slow-network resend can't create a second sale.
+    const saleKey = newIdempotencyKey();
 
     const render = () => {
       const quicks = [
@@ -109,7 +112,7 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
             method = m;
             render();
           }}
-          onConfirm={(t) => confirmPay(method, t)}
+          onConfirm={(t) => confirmPay(method, t, saleKey)}
           onCancel={closeModal}
         />,
       );
@@ -117,7 +120,7 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
     render();
   }
 
-  async function confirmPay(method: PaymentMethod, tendered: number) {
+  async function confirmPay(method: PaymentMethod, tendered: number, idempotencyKey?: string) {
     if (method === 'cash' && tendered < total) {
       toast('Cash received is less than the total');
       return;
@@ -135,6 +138,7 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
         payment_method: method,
         tendered: method === 'cash' ? tendered : total,
         lines: ticket.map((l) => ({ item_id: l.item.id, qty: l.qty })),
+        idempotency_key: idempotencyKey,
       });
       setTicket([]);
       setDiscountPct(0);
@@ -397,12 +401,21 @@ export function printHtml(title: string, bodyHtml: string): boolean {
   return true;
 }
 
+/** A unique key per checkout attempt (falls back if crypto.randomUUID is absent). */
+function newIdempotencyKey(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `k-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
 interface PaymentModalProps {
   total: number;
   method: PaymentMethod;
   quicks: number[];
   onMethod: (m: PaymentMethod) => void;
-  onConfirm: (tendered: number) => void;
+  onConfirm: (tendered: number) => Promise<void> | void;
   onCancel: () => void;
 }
 
@@ -564,8 +577,21 @@ function GcashLogo() {
 
 function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
   const [tendered, setTendered] = useState(Math.ceil(total));
+  const [submitting, setSubmitting] = useState(false);
   const change = tendered >= total ? tendered - total : 0;
   const cashRef = useRef<HTMLInputElement>(null);
+
+  // Guard against double-taps: once tapped, the button is disabled until the
+  // request resolves (it re-enables only if the sale failed, so it can retry).
+  async function submit() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onConfirm(tendered);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   // Put the cursor in the cash field (and select the prefilled amount) so the
   // cashier can just type what the customer handed over.
@@ -616,11 +642,16 @@ function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: 
         )}
       </div>
       <footer>
-        <button className="btn" onClick={onCancel}>
+        <button className="btn" onClick={onCancel} disabled={submitting}>
           Cancel
         </button>
-        <button className="btn amber" style={{ minWidth: 140 }} onClick={() => onConfirm(tendered)}>
-          Complete sale
+        <button
+          className="btn amber"
+          style={{ minWidth: 140 }}
+          onClick={submit}
+          disabled={submitting}
+        >
+          {submitting ? 'Processing…' : 'Complete sale'}
         </button>
       </footer>
     </>

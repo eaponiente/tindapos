@@ -43,6 +43,7 @@ export interface SalePayload {
   payment_method: PaymentMethod;
   tendered: number;
   lines: { item_id: number; qty: number }[];
+  idempotency_key?: string; // dedupes double-taps / retries on slow connections
 }
 
 /** Appends the branch filter to a query string when a branch is given. */

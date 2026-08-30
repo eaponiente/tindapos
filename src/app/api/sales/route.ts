@@ -66,6 +66,36 @@ export const POST = handler(async (request: NextRequest) => {
   const discountPct = Number(body.discount_pct) || 0;
   if (discountPct < 0 || discountPct > 100) return fail('Discount must be between 0 and 100');
 
+  // Idempotency: a repeat of the same key (double-tap / retry on slow internet)
+  // must not create a second sale. Claim the key first; if it's already claimed,
+  // return the sale it produced instead of ringing up another.
+  let key = body.idempotency_key ? String(body.idempotency_key) : null;
+  if (key) {
+    const { error: claimErr } = await db().from('sale_idempotency').insert({ key });
+    if (claimErr?.code === '23505') {
+      // Key already claimed — this is a duplicate submit. Return the original sale.
+      const { data: rec } = await db()
+        .from('sale_idempotency')
+        .select('sale_id')
+        .eq('key', key)
+        .maybeSingle();
+      if (rec?.sale_id) {
+        const { data: existing } = await db()
+          .from('sales')
+          .select(SALE_SELECT)
+          .eq('id', rec.sale_id)
+          .single();
+        return NextResponse.json(existing);
+      }
+      // Claimed but the first request hasn't finished writing the sale yet.
+      return fail('That sale is already being processed — please wait a moment.', 409);
+    } else if (claimErr) {
+      // Some other issue (e.g. the table isn't migrated yet) — don't block the
+      // sale; just proceed without server-side dedupe for this request.
+      key = null;
+    }
+  }
+
   const { data: saleId, error } = await db().rpc('create_sale', {
     p_employee_id: body.employee_id,
     p_branch_id: body.branch_id,
@@ -77,7 +107,13 @@ export const POST = handler(async (request: NextRequest) => {
       qty: l.qty,
     })),
   });
-  if (error) return fail(error.message);
+  if (error) {
+    // Release the claim so a genuine retry can go through.
+    if (key) await db().from('sale_idempotency').delete().eq('key', key);
+    return fail(error.message);
+  }
+
+  if (key) await db().from('sale_idempotency').update({ sale_id: saleId }).eq('key', key);
 
   const { data: sale } = await db().from('sales').select(SALE_SELECT).eq('id', saleId).single();
   return NextResponse.json(sale, { status: 201 });
