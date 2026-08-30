@@ -28,6 +28,28 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
   const [discountLabel, setDiscountLabel] = useState('');
   const [placing, setPlacing] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [simple, setSimple] = useState(false); // hide photos for faster tapping
+
+  // Remember the cashier's view choice on this device.
+  useEffect(() => {
+    try {
+      setSimple(localStorage.getItem('tindapos:sellSimple') === '1');
+    } catch {
+      /* storage unavailable — just default to the photo view */
+    }
+  }, []);
+
+  function toggleSimple() {
+    setSimple((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem('tindapos:sellSimple', next ? '1' : '0');
+      } catch {
+        /* ignore — the toggle still works for this session */
+      }
+      return next;
+    });
+  }
 
   const catNames = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories]);
 
@@ -190,6 +212,14 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button
+          className={'btn viewToggle' + (simple ? ' active' : '')}
+          onClick={toggleSimple}
+          aria-pressed={simple}
+          title={simple ? 'Show item photos' : 'Simple view — hide photos'}
+        >
+          {simple ? '🖼 Photos' : '≣ Simple'}
+        </button>
       </div>
       <div id="sellBody" className={ticketOpen ? 'ticketOpen' : ''}>
         <div id="catalog">
@@ -200,7 +230,7 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
               </button>
             ))}
           </div>
-          <div id="grid">
+          <div id="grid" className={simple ? 'simple' : ''}>
             {visibleItems.map((i) => {
               const low = i.stock <= i.low_stock;
               return (
@@ -214,13 +244,14 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
                       {i.status === 'out' ? 'Out' : 'Low'}
                     </span>
                   )}
-                  {i.image_url ? (
-                    <img className="swatch img" src={i.image_url} alt="" />
-                  ) : (
-                    <div className="swatch" style={{ background: i.color }}>
-                      {i.name[0]}
-                    </div>
-                  )}
+                  {!simple &&
+                    (i.image_url ? (
+                      <img className="swatch img" src={i.image_url} alt="" />
+                    ) : (
+                      <div className="swatch" style={{ background: i.color }}>
+                        {i.name[0]}
+                      </div>
+                    ))}
                   <div className="cardBody">
                     <div className="nm">{i.name}</div>
                     <div className="pr">
