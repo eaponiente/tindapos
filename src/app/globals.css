@@ -154,6 +154,11 @@ main{flex:1; display:flex; min-width:0; min-height:0;}
 .arrangeHint{color:var(--muted); font-size:13px; white-space:nowrap;}
 .arrangeBar{margin:4px 20px 10px; padding:9px 14px; border-radius:12px; font-size:13px; line-height:1.4;
   background:var(--paper); border:1px dashed var(--gold); color:var(--ink);}
+/* Category section headings inside the Sell grid (All view). */
+.catHead{grid-column:1 / -1; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--muted); padding:12px 2px 4px; border-bottom:1px solid var(--line);}
+.catHead:first-child{padding-top:2px;}
+
 #grid.arrange .itemCard{cursor:grab; touch-action:none; user-select:none;}
 #grid.arrange .itemCard.dragging{cursor:grabbing; opacity:.6; box-shadow:var(--shadow-lift); outline:2px solid var(--gold); outline-offset:-2px;}
 @media (max-width:860px){ .arrangeBar{margin:2px 12px 8px;} }

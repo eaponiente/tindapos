@@ -112,6 +112,8 @@ export default function Sell({
       const from = arr.findIndex((i) => i.id === dragging);
       const to = arr.findIndex((i) => i.id === overId);
       if (from < 0 || to < 0 || from === to) return arr;
+      // Keep items within their own category section.
+      if ((arr[from].category_id ?? null) !== (arr[to].category_id ?? null)) return arr;
       const next = arr.slice();
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
@@ -274,6 +276,78 @@ export default function Sell({
     );
   }
 
+  // In the "All" view (not searching) the tiles are grouped under category
+  // headings; a specific tab or a search shows a plain flat grid.
+  const grouped = cat === 'All' && !search.trim();
+
+  /** Split a list into category sections, following the order the categories
+   *  were set up in; uncategorised items come last. */
+  function groupItems(list: Item[]): { name: string; items: Item[] }[] {
+    const byCat = new Map<string, Item[]>();
+    for (const it of list) {
+      const key = it.category?.name ?? 'Uncategorized';
+      const arr = byCat.get(key);
+      if (arr) arr.push(it);
+      else byCat.set(key, [it]);
+    }
+    const ordered: { name: string; items: Item[] }[] = [];
+    for (const c of categories) {
+      const items = byCat.get(c.name);
+      if (items?.length) {
+        ordered.push({ name: c.name, items });
+        byCat.delete(c.name);
+      }
+    }
+    for (const k of [...byCat.keys()].filter((k) => k !== 'Uncategorized').sort()) {
+      ordered.push({ name: k, items: byCat.get(k)! });
+    }
+    if (byCat.has('Uncategorized')) {
+      ordered.push({ name: 'Uncategorized', items: byCat.get('Uncategorized')! });
+    }
+    return ordered;
+  }
+
+  const renderTile = (i: Item) => {
+    const low = i.stock <= i.low_stock;
+    return (
+      <button
+        key={i.id}
+        data-item-id={i.id}
+        className={
+          'itemCard' +
+          (i.stock <= 0 ? ' out' : '') +
+          (arranging ? ' draggable' : '') +
+          (dragId === i.id ? ' dragging' : '')
+        }
+        onClick={arranging ? undefined : () => addToTicket(i)}
+        onPointerDown={arranging ? (e) => onTilePointerDown(e, i.id) : undefined}
+        onPointerMove={arranging ? onTilePointerMove : undefined}
+        onPointerUp={arranging ? onTilePointerUp : undefined}
+      >
+        {i.status !== 'ok' && (
+          <span className={'stockBadge ' + i.status}>{i.status === 'out' ? 'Out' : 'Low'}</span>
+        )}
+        {!simple &&
+          (i.image_url ? (
+            <img className="swatch img" src={i.image_url} alt="" />
+          ) : (
+            <div className="swatch" style={{ background: i.color }}>
+              {i.name[0]}
+            </div>
+          ))}
+        <div className="cardBody">
+          <div className="nm">{i.name}</div>
+          <div className="pr">
+            <b>{peso(i.price)}</b>
+            <span className={'stk' + (low ? ' low' : '')}>
+              {i.stock <= 0 ? 'Out' : `${i.stock} left`}
+            </span>
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   return (
     <section className="screen">
       <div className="topbar">
@@ -317,8 +391,8 @@ export default function Sell({
         <div id="catalog">
           {arranging ? (
             <div className="arrangeBar">
-              Arrange mode — drag any tile to move it. Tap <b>Save order</b> when you&apos;re done.
-              The order is saved for this branch and everyone sees it.
+              Arrange mode — drag a tile to reorder it within its category. Tap <b>Save order</b>{' '}
+              when you&apos;re done. The order is saved for this branch and everyone sees it.
             </div>
           ) : (
             <div className="catTabs">
@@ -329,52 +403,15 @@ export default function Sell({
               ))}
             </div>
           )}
-          <div
-            id="grid"
-            className={(simple ? 'simple' : '') + (arranging ? ' arrange' : '')}
-          >
-            {(arranging ? arranged : visibleItems).map((i) => {
-              const low = i.stock <= i.low_stock;
-              return (
-                <button
-                  key={i.id}
-                  data-item-id={i.id}
-                  className={
-                    'itemCard' +
-                    (i.stock <= 0 ? ' out' : '') +
-                    (arranging ? ' draggable' : '') +
-                    (dragId === i.id ? ' dragging' : '')
-                  }
-                  onClick={arranging ? undefined : () => addToTicket(i)}
-                  onPointerDown={arranging ? (e) => onTilePointerDown(e, i.id) : undefined}
-                  onPointerMove={arranging ? onTilePointerMove : undefined}
-                  onPointerUp={arranging ? onTilePointerUp : undefined}
-                >
-                  {i.status !== 'ok' && (
-                    <span className={'stockBadge ' + i.status}>
-                      {i.status === 'out' ? 'Out' : 'Low'}
-                    </span>
-                  )}
-                  {!simple &&
-                    (i.image_url ? (
-                      <img className="swatch img" src={i.image_url} alt="" />
-                    ) : (
-                      <div className="swatch" style={{ background: i.color }}>
-                        {i.name[0]}
-                      </div>
-                    ))}
-                  <div className="cardBody">
-                    <div className="nm">{i.name}</div>
-                    <div className="pr">
-                      <b>{peso(i.price)}</b>
-                      <span className={'stk' + (low ? ' low' : '')}>
-                        {i.stock <= 0 ? 'Out' : `${i.stock} left`}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          <div id="grid" className={(simple ? 'simple' : '') + (arranging ? ' arrange' : '')}>
+            {grouped
+              ? groupItems(arranging ? arranged : visibleItems).map((g) => (
+                  <React.Fragment key={g.name}>
+                    <div className="catHead">{g.name}</div>
+                    {g.items.map(renderTile)}
+                  </React.Fragment>
+                ))
+              : (arranging ? arranged : visibleItems).map(renderTile)}
           </div>
         </div>
         <aside id="ticket">
