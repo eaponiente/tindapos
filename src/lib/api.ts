@@ -134,4 +134,9 @@ export const api = {
   createSale: (data: SalePayload) =>
     request<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) }),
   refundSale: (id: number) => request<Sale>(`/sales/${id}/refund`, { method: 'POST' }),
+  updateSalePayment: (id: number, payment_method: PaymentMethod) =>
+    request<Sale>(`/sales/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ payment_method }),
+    }),
 };

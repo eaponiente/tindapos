@@ -13,6 +13,7 @@ interface HistoryProps {
   isOwner: boolean;
   branches: Branch[];
   branchId: number | null; // a non-owner is locked to this branch
+  session: Employee;
 }
 
 export default function History({
@@ -21,6 +22,7 @@ export default function History({
   isOwner,
   branches,
   branchId,
+  session,
 }: HistoryProps) {
   const { toast, openModal, closeModal } = useUI();
   const [q, setQ] = useState('');
@@ -80,6 +82,11 @@ export default function History({
           <pre className="receipt">{receiptText(sale)}</pre>
         </div>
         <footer>
+          {!sale.refunded && isOwner && (
+            <button className="btn" onClick={() => changePayment(sale)}>
+              💳 Payment
+            </button>
+          )}
           {!sale.refunded && (
             <button className="btn danger" onClick={() => confirmRefund(sale)}>
               Refund
@@ -152,6 +159,82 @@ export default function History({
               }}
             >
               Confirm refund
+            </button>
+          </footer>
+        </>,
+      );
+    };
+    render();
+  }
+
+  // Owner-only fix for a mis-tapped mode of payment. Only the method changes —
+  // never the amount — and the correction is written to the activity log.
+  function changePayment(sale: Sale) {
+    let choice: 'cash' | 'card' = sale.payment_method;
+    let error = '';
+    let saving = false;
+
+    const render = () => {
+      openModal(
+        <>
+          <header>
+            <h3>Payment method — receipt #{sale.id}</h3>
+          </header>
+          <div className="bodyPad">
+            <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 14 }}>
+              Correct how this <b>{peso(sale.total)}</b> sale was paid. The total is not changed.
+            </p>
+            <div className="payBtns" style={{ marginTop: 0 }}>
+              <button
+                className={choice === 'cash' ? 'sel' : ''}
+                onClick={() => {
+                  choice = 'cash';
+                  render();
+                }}
+              >
+                💵 Cash
+              </button>
+              <button
+                className={choice === 'card' ? 'sel' : ''}
+                onClick={() => {
+                  choice = 'card';
+                  render();
+                }}
+              >
+                GCash
+              </button>
+            </div>
+            {error && <div className="errText">{error}</div>}
+          </div>
+          <footer>
+            <button className="btn" disabled={saving} onClick={() => openReceipt(sale)}>
+              Cancel
+            </button>
+            <button
+              className="btn primary"
+              disabled={saving || choice === sale.payment_method}
+              onClick={async () => {
+                saving = true;
+                render();
+                try {
+                  await api.updateSalePayment(sale.id, choice);
+                  api.logActivity({
+                    actor_id: session.id,
+                    actor_name: session.name,
+                    action: 'Changed payment method',
+                    detail: `Receipt #${sale.id}: ${label(sale.payment_method)} → ${label(choice)} (${peso(sale.total)})`,
+                  });
+                  closeModal();
+                  toast(`Receipt #${sale.id} set to ${label(choice)}`);
+                  load();
+                } catch (e) {
+                  saving = false;
+                  error = e instanceof Error ? e.message : 'Something went wrong';
+                  render();
+                }
+              }}
+            >
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </footer>
         </>,
@@ -323,6 +406,11 @@ export default function History({
       </div>
     </section>
   );
+}
+
+/** Cash/card is how sales are stored; "GCash" is what card means to this shop. */
+function label(method: string): string {
+  return method === 'cash' ? 'Cash' : 'GCash';
 }
 
 /** Sales come back newest-first, so we page from the top and stop as soon as we

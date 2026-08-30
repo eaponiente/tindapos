@@ -364,6 +364,7 @@ function AppShell() {
             isOwner={isOwner}
             branches={branches}
             branchId={isOwner ? null : session.branch_id}
+            session={session}
           />
         )}
         {screen === 'inventory' && canManage && (
