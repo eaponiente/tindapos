@@ -12,6 +12,7 @@ interface SellProps {
   items: Item[];
   categories: Category[];
   reloadItems: () => Promise<void>;
+  isOwner: boolean;
 }
 
 interface TicketLine {
@@ -19,7 +20,14 @@ interface TicketLine {
   qty: number;
 }
 
-export default function Sell({ employee, branchId, items, categories, reloadItems }: SellProps) {
+export default function Sell({
+  employee,
+  branchId,
+  items,
+  categories,
+  reloadItems,
+  isOwner,
+}: SellProps) {
   const { toast, openModal, closeModal } = useUI();
   const [cat, setCat] = useState('All');
   const [search, setSearch] = useState('');
@@ -49,6 +57,71 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
       }
       return next;
     });
+  }
+
+  // ── Owner-only: drag to rearrange the product tiles ──────────────────────
+  // Works with mouse and touch (pointer events + pointer capture), so it's
+  // usable on the shop's tablets. While arranging, tapping a tile reorders
+  // instead of adding it to the ticket; the new order is saved per branch.
+  const [arranging, setArranging] = useState(false);
+  const [arranged, setArranged] = useState<Item[]>([]);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const dragIdRef = useRef<number | null>(null);
+
+  function enterArrange() {
+    setSearch('');
+    setCat('All');
+    setArranged(items); // items arrive already in saved position order
+    setArranging(true);
+  }
+
+  function cancelArrange() {
+    setArranging(false);
+    setDragId(null);
+    dragIdRef.current = null;
+  }
+
+  async function saveArrange() {
+    setSavingOrder(true);
+    try {
+      await api.reorderItems(arranged.map((i) => i.id));
+      await reloadItems();
+      toast('New order saved');
+      cancelArrange();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not save the new order');
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
+  function onTilePointerDown(e: React.PointerEvent, id: number) {
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragIdRef.current = id;
+    setDragId(id);
+  }
+
+  function onTilePointerMove(e: React.PointerEvent) {
+    const dragging = dragIdRef.current;
+    if (dragging == null) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const overId = Number(el?.closest<HTMLElement>('[data-item-id]')?.dataset.itemId);
+    if (!overId || overId === dragging) return;
+    setArranged((arr) => {
+      const from = arr.findIndex((i) => i.id === dragging);
+      const to = arr.findIndex((i) => i.id === overId);
+      if (from < 0 || to < 0 || from === to) return arr;
+      const next = arr.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function onTilePointerUp() {
+    dragIdRef.current = null;
+    setDragId(null);
   }
 
   const catNames = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories]);
@@ -206,38 +279,76 @@ export default function Sell({ employee, branchId, items, categories, reloadItem
       <div className="topbar">
         <h2>Sell</h2>
         <div className="grow"></div>
-        <input
-          className="search"
-          placeholder="Search items or SKU…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button
-          className={'btn viewToggle' + (simple ? ' active' : '')}
-          onClick={toggleSimple}
-          aria-pressed={simple}
-          title={simple ? 'Show item photos' : 'Simple view — hide photos'}
-        >
-          {simple ? '🖼 Photos' : '≣ Simple'}
-        </button>
+        {arranging ? (
+          <>
+            <span className="arrangeHint">Drag tiles to reorder</span>
+            <button className="btn" onClick={cancelArrange} disabled={savingOrder}>
+              Cancel
+            </button>
+            <button className="btn primary" onClick={saveArrange} disabled={savingOrder}>
+              {savingOrder ? 'Saving…' : 'Save order'}
+            </button>
+          </>
+        ) : (
+          <>
+            <input
+              className="search"
+              placeholder="Search items or SKU…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button
+              className={'btn viewToggle' + (simple ? ' active' : '')}
+              onClick={toggleSimple}
+              aria-pressed={simple}
+              title={simple ? 'Show item photos' : 'Simple view — hide photos'}
+            >
+              {simple ? '🖼 Photos' : '≣ Simple'}
+            </button>
+            {isOwner && (
+              <button className="btn" onClick={enterArrange} title="Rearrange the product tiles">
+                ↕ Arrange
+              </button>
+            )}
+          </>
+        )}
       </div>
       <div id="sellBody" className={ticketOpen ? 'ticketOpen' : ''}>
         <div id="catalog">
-          <div className="catTabs">
-            {catNames.map((c) => (
-              <button key={c} className={c === cat ? 'active' : ''} onClick={() => setCat(c)}>
-                {c}
-              </button>
-            ))}
-          </div>
-          <div id="grid" className={simple ? 'simple' : ''}>
-            {visibleItems.map((i) => {
+          {arranging ? (
+            <div className="arrangeBar">
+              Arrange mode — drag any tile to move it. Tap <b>Save order</b> when you&apos;re done.
+              The order is saved for this branch and everyone sees it.
+            </div>
+          ) : (
+            <div className="catTabs">
+              {catNames.map((c) => (
+                <button key={c} className={c === cat ? 'active' : ''} onClick={() => setCat(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+          <div
+            id="grid"
+            className={(simple ? 'simple' : '') + (arranging ? ' arrange' : '')}
+          >
+            {(arranging ? arranged : visibleItems).map((i) => {
               const low = i.stock <= i.low_stock;
               return (
                 <button
                   key={i.id}
-                  className={'itemCard' + (i.stock <= 0 ? ' out' : '')}
-                  onClick={() => addToTicket(i)}
+                  data-item-id={i.id}
+                  className={
+                    'itemCard' +
+                    (i.stock <= 0 ? ' out' : '') +
+                    (arranging ? ' draggable' : '') +
+                    (dragId === i.id ? ' dragging' : '')
+                  }
+                  onClick={arranging ? undefined : () => addToTicket(i)}
+                  onPointerDown={arranging ? (e) => onTilePointerDown(e, i.id) : undefined}
+                  onPointerMove={arranging ? onTilePointerMove : undefined}
+                  onPointerUp={arranging ? onTilePointerUp : undefined}
                 >
                   {i.status !== 'ok' && (
                     <span className={'stockBadge ' + i.status}>

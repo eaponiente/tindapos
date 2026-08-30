@@ -15,7 +15,11 @@ export const GET = handler(async (request: NextRequest) => {
   const { data, error } = await query;
   if (error) return fail(error.message, 500);
 
-  return NextResponse.json((data ?? []).map(mapItem));
+  // Sort by the owner's arranged order in JS (falls back to name when the
+  // position column isn't migrated yet, so items always load).
+  const items = (data ?? []).map(mapItem);
+  items.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+  return NextResponse.json(items);
 });
 
 export const POST = handler(async (request: NextRequest) => {

@@ -56,6 +56,7 @@ export function mapItem(row: ItemRow): Item {
   const status: StockStatus = row.stock <= 0 ? 'out' : row.stock <= row.low_stock ? 'low' : 'ok';
   return {
     ...row,
+    position: Number(row.position) || 0,
     cost,
     price,
     margin_pct: price <= 0 ? 0 : Math.round(((price - cost) / price) * 100),

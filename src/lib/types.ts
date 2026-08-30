@@ -51,6 +51,7 @@ export interface Item {
   stock: number;
   low_stock: number;
   color: string;
+  position: number; // display order on the Sell grid (owner-arranged)
   image: string | null;
   // computed server-side, mirroring the Laravel model accessors
   image_url: string | null;

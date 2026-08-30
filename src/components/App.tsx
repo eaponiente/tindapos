@@ -355,6 +355,7 @@ function AppShell() {
             items={items}
             categories={categories}
             reloadItems={reloadItems}
+            isOwner={isOwner}
           />
         )}
         {screen === 'history' && (

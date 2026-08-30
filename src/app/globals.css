@@ -150,6 +150,14 @@ main{flex:1; display:flex; min-width:0; min-height:0;}
 #grid.simple .itemCard .pr .stk{color:var(--muted);}
 #grid.simple .itemCard .pr .stk.low{color:var(--danger);}
 
+/* Owner arrange mode: tiles become draggable (mouse + touch). */
+.arrangeHint{color:var(--muted); font-size:13px; white-space:nowrap;}
+.arrangeBar{margin:4px 20px 10px; padding:9px 14px; border-radius:12px; font-size:13px; line-height:1.4;
+  background:var(--paper); border:1px dashed var(--gold); color:var(--ink);}
+#grid.arrange .itemCard{cursor:grab; touch-action:none; user-select:none;}
+#grid.arrange .itemCard.dragging{cursor:grabbing; opacity:.6; box-shadow:var(--shadow-lift); outline:2px solid var(--gold); outline-offset:-2px;}
+@media (max-width:860px){ .arrangeBar{margin:2px 12px 8px;} }
+
 #ticket{width:340px; flex-shrink:0; margin:0 16px 16px 4px; background:var(--panel); border-radius:16px 16px 0 0; box-shadow:var(--shadow);
   display:flex; flex-direction:column;}
 #ticket header{padding:14px 16px 8px; border-bottom:1px dashed var(--line); display:flex; justify-content:space-between; align-items:center;}
