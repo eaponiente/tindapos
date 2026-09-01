@@ -149,12 +149,34 @@ export default function Sell({
     });
   }, [items, cat, search]);
 
+  // Quantities already committed to open tables at this branch (only loaded in
+  // table-session mode) — so a table can't order past what's in stock across
+  // rounds. Quick-sale mode leaves this empty and uses raw stock, unchanged.
+  const [reserved, setReserved] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (!session || !branchId) return;
+    let cancelled = false;
+    api
+      .sessionReserved(branchId)
+      .then((m) => !cancelled && setReserved(m))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id, branchId]);
+
+  // Stock available to a NEW round = real stock minus what open tables already
+  // hold. In quick-sale mode (no session) this is just the raw stock.
+  function effStock(item: Item) {
+    return session ? Math.max(item.stock - (reserved[item.id] ?? 0), 0) : item.stock;
+  }
+
   function inTicketQty(itemId: number) {
     return ticket.find((l) => l.item.id === itemId)?.qty || 0;
   }
 
   function addToTicket(item: Item) {
-    if (item.stock - inTicketQty(item.id) <= 0) {
+    if (effStock(item) - inTicketQty(item.id) <= 0) {
       toast('No more stock for ' + item.name);
       return;
     }
@@ -169,8 +191,8 @@ export default function Sell({
     setTicket((t) => {
       const line = t.find((l) => l.item.id === itemId);
       if (!line) return t;
-      if (delta > 0 && line.qty >= line.item.stock) {
-        toast(`Only ${line.item.stock} in stock`);
+      if (delta > 0 && line.qty >= effStock(line.item)) {
+        toast(`Only ${effStock(line.item)} left`);
         return t;
       }
       const nextQty = line.qty + delta;
@@ -343,14 +365,18 @@ export default function Sell({
   }
 
   const renderTile = (i: Item) => {
-    const low = i.stock <= i.low_stock;
+    // In table-session mode the numbers reflect stock still available after
+    // what open tables already hold; in quick-sale mode this is the raw stock.
+    const es = effStock(i);
+    const low = es <= i.low_stock;
+    const dispStatus = es <= 0 ? 'out' : low ? 'low' : 'ok';
     return (
       <button
         key={i.id}
         data-item-id={i.id}
         className={
           'itemCard' +
-          (i.stock <= 0 ? ' out' : '') +
+          (es <= 0 ? ' out' : '') +
           (arranging ? ' draggable' : '') +
           (dragId === i.id ? ' dragging' : '')
         }
@@ -359,8 +385,8 @@ export default function Sell({
         onPointerMove={arranging ? onTilePointerMove : undefined}
         onPointerUp={arranging ? onTilePointerUp : undefined}
       >
-        {i.status !== 'ok' && (
-          <span className={'stockBadge ' + i.status}>{i.status === 'out' ? 'Out' : 'Low'}</span>
+        {dispStatus !== 'ok' && (
+          <span className={'stockBadge ' + dispStatus}>{dispStatus === 'out' ? 'Out' : 'Low'}</span>
         )}
         {!simple &&
           (i.image_url ? (
@@ -375,7 +401,7 @@ export default function Sell({
           <div className="pr">
             <b>{peso(i.price)}</b>
             <span className={'stk' + (low ? ' low' : '')}>
-              {i.stock <= 0 ? 'Out' : `${i.stock} left`}
+              {es <= 0 ? 'Out' : `${es} left`}
             </span>
           </div>
         </div>

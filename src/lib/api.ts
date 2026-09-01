@@ -146,6 +146,8 @@ export const api = {
 
   // ── Restaurant tables & dine-in sessions ─────────────────────────────────
   floor: (branchId: number) => request<FloorTable[]>(`/tables?branch_id=${branchId}`),
+  sessionReserved: (branchId: number) =>
+    request<Record<number, number>>(`/tables/reserved?branch_id=${branchId}`),
   session: (id: number) => request<TableSession>(`/tables/sessions/${id}`),
   openSession: (data: {
     branch_id: number;
