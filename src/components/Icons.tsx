@@ -59,6 +59,22 @@ export const ActivityIcon = () => (
   </svg>
 );
 
+export const TablesIcon = () => (
+  <svg {...base} aria-hidden>
+    <circle cx="10.5" cy="12" r="6.5" />
+    <circle cx="10.5" cy="12" r="2.6" />
+    <path d="M20 5v14" />
+    <path d="M17.6 5v4.2a2.4 2.4 0 0 0 2.4 2.4" />
+  </svg>
+);
+
+export const OrdersIcon = () => (
+  <svg {...base} aria-hidden>
+    <path d="M6 8h12l-1.1 11.2A2 2 0 0 1 14.9 21H9.1a2 2 0 0 1-2-1.8L6 8Z" />
+    <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+  </svg>
+);
+
 export const MenuIcon = () => (
   <svg {...base} aria-hidden>
     <path d="M4 7h16M4 12h16M4 17h16" />

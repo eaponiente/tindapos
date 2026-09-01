@@ -6,6 +6,16 @@ import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
 import type { Category, Employee, Item, PaymentMethod, Sale } from '@/lib/types';
 
+/** When present, Sell runs in "add to table" mode: the Charge button becomes
+ *  "Add to Table" (appends a round to the session) and payment/discount/arrange
+ *  are hidden. Absent = the normal quick-sale flow, unchanged. */
+export interface SellSessionCtx {
+  id: number;
+  title: string; // header text, e.g. "Table 3 + 4" or "Delivery — Juan"
+  onAdded: () => void; // a round was added — return to the session panel
+  onCancel: () => void; // leave without adding
+}
+
 interface SellProps {
   employee: Employee;
   branchId: number | null;
@@ -13,6 +23,7 @@ interface SellProps {
   categories: Category[];
   reloadItems: () => Promise<void>;
   isOwner: boolean;
+  session?: SellSessionCtx;
 }
 
 interface TicketLine {
@@ -27,6 +38,7 @@ export default function Sell({
   categories,
   reloadItems,
   isOwner,
+  session,
 }: SellProps) {
   const { toast, openModal, closeModal } = useUI();
   const [cat, setCat] = useState('All');
@@ -137,12 +149,34 @@ export default function Sell({
     });
   }, [items, cat, search]);
 
+  // Quantities already committed to open tables at this branch (only loaded in
+  // table-session mode) — so a table can't order past what's in stock across
+  // rounds. Quick-sale mode leaves this empty and uses raw stock, unchanged.
+  const [reserved, setReserved] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (!session || !branchId) return;
+    let cancelled = false;
+    api
+      .sessionReserved(branchId)
+      .then((m) => !cancelled && setReserved(m))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.id, branchId]);
+
+  // Stock available to a NEW round = real stock minus what open tables already
+  // hold. In quick-sale mode (no session) this is just the raw stock.
+  function effStock(item: Item) {
+    return session ? Math.max(item.stock - (reserved[item.id] ?? 0), 0) : item.stock;
+  }
+
   function inTicketQty(itemId: number) {
     return ticket.find((l) => l.item.id === itemId)?.qty || 0;
   }
 
   function addToTicket(item: Item) {
-    if (item.stock - inTicketQty(item.id) <= 0) {
+    if (effStock(item) - inTicketQty(item.id) <= 0) {
       toast('No more stock for ' + item.name);
       return;
     }
@@ -157,8 +191,8 @@ export default function Sell({
     setTicket((t) => {
       const line = t.find((l) => l.item.id === itemId);
       if (!line) return t;
-      if (delta > 0 && line.qty >= line.item.stock) {
-        toast(`Only ${line.item.stock} in stock`);
+      if (delta > 0 && line.qty >= effStock(line.item)) {
+        toast(`Only ${effStock(line.item)} left`);
         return t;
       }
       const nextQty = line.qty + delta;
@@ -250,6 +284,29 @@ export default function Sell({
     }
   }
 
+  // Add-to-table mode: append the current ticket as a new round on the open
+  // session, then hand control back to the table panel. No payment here.
+  async function addToSession() {
+    if (!session || !ticket.length) return;
+    setPlacing(true);
+    try {
+      await api.addSessionRound(
+        session.id,
+        ticket.map((l) => ({ item_id: l.item.id, qty: l.qty })),
+        employee.id,
+      );
+      setTicket([]);
+      setDiscountPct(0);
+      setDiscountLabel('');
+      toast('Order added');
+      session.onAdded();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not add the order');
+    } finally {
+      setPlacing(false);
+    }
+  }
+
   function showReceipt(sale: Sale) {
     openModal(
       <>
@@ -308,14 +365,18 @@ export default function Sell({
   }
 
   const renderTile = (i: Item) => {
-    const low = i.stock <= i.low_stock;
+    // In table-session mode the numbers reflect stock still available after
+    // what open tables already hold; in quick-sale mode this is the raw stock.
+    const es = effStock(i);
+    const low = es <= i.low_stock;
+    const dispStatus = es <= 0 ? 'out' : low ? 'low' : 'ok';
     return (
       <button
         key={i.id}
         data-item-id={i.id}
         className={
           'itemCard' +
-          (i.stock <= 0 ? ' out' : '') +
+          (es <= 0 ? ' out' : '') +
           (arranging ? ' draggable' : '') +
           (dragId === i.id ? ' dragging' : '')
         }
@@ -324,8 +385,8 @@ export default function Sell({
         onPointerMove={arranging ? onTilePointerMove : undefined}
         onPointerUp={arranging ? onTilePointerUp : undefined}
       >
-        {i.status !== 'ok' && (
-          <span className={'stockBadge ' + i.status}>{i.status === 'out' ? 'Out' : 'Low'}</span>
+        {dispStatus !== 'ok' && (
+          <span className={'stockBadge ' + dispStatus}>{dispStatus === 'out' ? 'Out' : 'Low'}</span>
         )}
         {!simple &&
           (i.image_url ? (
@@ -340,7 +401,7 @@ export default function Sell({
           <div className="pr">
             <b>{peso(i.price)}</b>
             <span className={'stk' + (low ? ' low' : '')}>
-              {i.stock <= 0 ? 'Out' : `${i.stock} left`}
+              {es <= 0 ? 'Out' : `${es} left`}
             </span>
           </div>
         </div>
@@ -351,7 +412,12 @@ export default function Sell({
   return (
     <section className="screen">
       <div className="topbar">
-        <h2>Sell</h2>
+        {session && (
+          <button className="btn" onClick={session.onCancel} title="Back">
+            ← Back
+          </button>
+        )}
+        <h2>{session ? session.title : 'Counter'}</h2>
         <div className="grow"></div>
         {arranging ? (
           <>
@@ -452,21 +518,35 @@ export default function Sell({
               <span>Subtotal</span>
               <span>{peso(subtotal)}</span>
             </div>
-            <div className="totRow">
-              <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
-              <span>{discount ? '−' + peso(discount) : peso(0)}</span>
-            </div>
+            {!session && (
+              <div className="totRow">
+                <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
+                <span>{discount ? '−' + peso(discount) : peso(0)}</span>
+              </div>
+            )}
             <div className="totRow grand">
               <span>Total</span>
               <span>{peso(total)}</span>
             </div>
-            <button id="chargeBtn" disabled={!ticket.length || placing} onClick={openPayment}>
-              {ticket.length ? `Charge ${peso(total)}` : 'Charge'}
+            <button
+              id="chargeBtn"
+              disabled={!ticket.length || placing}
+              onClick={session ? addToSession : openPayment}
+            >
+              {session
+                ? ticket.length
+                  ? `Add ${peso(total)}`
+                  : 'Add order'
+                : ticket.length
+                  ? `Charge ${peso(total)}`
+                  : 'Charge'}
             </button>
             <div className="ticketTools">
-              <button className="btn small" onClick={askDiscount}>
-                Add discount
-              </button>
+              {!session && (
+                <button className="btn small" onClick={askDiscount}>
+                  Add discount
+                </button>
+              )}
               <button
                 className="btn small danger"
                 onClick={() => {
@@ -495,12 +575,31 @@ export default function Sell({
   );
 }
 
+/** Human label for a sale's order type. */
+export function orderTypeLabel(type?: string | null): string {
+  switch (type) {
+    case 'dine_in':
+      return 'Dine-in';
+    case 'take_out':
+      return 'Take-out';
+    case 'delivery':
+      return 'Delivery';
+    case 'pick_up':
+      return 'Pick-up';
+    default:
+      return 'Counter';
+  }
+}
+
 export function receiptText(sale: Sale): string {
   let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
   s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${
     sale.employee?.name || sale.employee_name || '—'
   }\n`;
+  if (sale.table_label) s += `Table: ${sale.table_label}\n`;
+  else if (sale.order_type && sale.order_type !== 'counter') s += `${orderTypeLabel(sale.order_type)}\n`;
+  if (sale.customer_name) s += `Customer: ${sale.customer_name}\n`;
   s += '--------------------------------\n';
   sale.items.forEach((l) => {
     s += `${l.qty} x ${l.name}\n`;
@@ -589,7 +688,7 @@ function newIdempotencyKey(): string {
   }
 }
 
-interface PaymentModalProps {
+export interface PaymentModalProps {
   total: number;
   method: PaymentMethod;
   quicks: number[];
@@ -607,7 +706,7 @@ interface DiscountModalProps {
 /** Discount dialog with a BIR-safe Senior/PWD mode (20% on only the seniors'
  *  pro-rata share, optional VAT exemption) and a manual Manager's mode. Both
  *  resolve to a ticket-level percentage, which is what checkout stores. */
-function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProps) {
+export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProps) {
   const [mode, setMode] = useState<'senior' | 'manager'>('senior');
   const [diners, setDiners] = useState('1');
   const [seniors, setSeniors] = useState('1');
@@ -754,7 +853,7 @@ function GcashLogo() {
   );
 }
 
-function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
+export function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
   const [tendered, setTendered] = useState(Math.ceil(total));
   const [submitting, setSubmitting] = useState(false);
   const change = tendered >= total ? tendered - total : 0;

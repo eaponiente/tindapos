@@ -6,13 +6,17 @@ import type {
   Branch,
   Category,
   Employee,
+  FloorTable,
   Item,
   ItemStats,
   PaymentMethod,
+  OrderTicket,
   Sale,
   SaleStats,
   SalesPage,
+  ServiceType,
   Shift,
+  TableSession,
 } from './types';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -140,5 +144,75 @@ export const api = {
     request<Sale>(`/sales/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ payment_method }),
+    }),
+
+  // ── Restaurant tables & dine-in sessions ─────────────────────────────────
+  floor: (branchId: number) => request<FloorTable[]>(`/tables?branch_id=${branchId}`),
+  sessionReserved: (branchId: number) =>
+    request<Record<number, number>>(`/tables/reserved?branch_id=${branchId}`),
+  session: (id: number) => request<TableSession>(`/tables/sessions/${id}`),
+  updateSessionCount: (id: number, customer_count: number) =>
+    request<TableSession>(`/tables/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ customer_count }),
+    }),
+  openSession: (data: {
+    branch_id: number;
+    table_ids: number[];
+    customer_count: number;
+    employee_id: number;
+    customer_name?: string; // reservation only
+    reserved_at?: string; // reservation only (ISO arrival time)
+  }) => request<{ session_id: number }>('/tables/sessions', { method: 'POST', body: JSON.stringify(data) }),
+  addSessionRound: (id: number, lines: { item_id: number; qty: number }[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/rounds`, {
+      method: 'POST',
+      body: JSON.stringify({ lines, employee_id }),
+    }),
+  updateSessionItem: (id: number, line_id: number, qty: number, employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/items`, {
+      method: 'PATCH',
+      body: JSON.stringify({ line_id, qty, employee_id }),
+    }),
+  combineTables: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/combine`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  transferSession: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  separateTables: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/separate`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  closeSession: (
+    id: number,
+    data: { payment_method: PaymentMethod; tendered: number; discount_pct: number; employee_id: number },
+  ) => request<Sale>(`/tables/sessions/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
+  voidSession: (id: number, employee_id: number) =>
+    request<{ ok: true }>(`/tables/sessions/${id}/void`, {
+      method: 'POST',
+      body: JSON.stringify({ employee_id }),
+    }),
+
+  // Take-out / delivery / pick-up order tickets (open, pay-later; no table)
+  orders: (branchId: number) => request<OrderTicket[]>(`/tables/orders?branch_id=${branchId}`),
+  openOrder: (data: {
+    branch_id: number;
+    service_type: ServiceType;
+    customer_name?: string;
+    customer_phone?: string;
+    customer_address?: string;
+    customer_landmark?: string;
+    employee_id: number;
+  }) => request<{ session_id: number }>('/tables/orders', { method: 'POST', body: JSON.stringify(data) }),
+  seatOrder: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/seat`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
     }),
 };

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import { printHtml, printReceipt, receiptText } from './Sell';
+import { printHtml, printReceipt, receiptText, orderTypeLabel } from './Sell';
 import type { Branch, Employee, Sale, SaleStats, SalesPage } from '@/lib/types';
 
 interface HistoryProps {
@@ -377,6 +377,18 @@ export default function History({
               <tr key={s.id} className="rowBtn" onClick={() => openReceipt(s)}>
                 <td>
                   <b>#{s.id}</b>
+                  {(() => {
+                    const tag = s.table_label
+                      ? `Table ${s.table_label}`
+                      : s.order_type && s.order_type !== 'counter' && s.order_type !== 'dine_in'
+                        ? orderTypeLabel(s.order_type)
+                        : '';
+                    return tag ? (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
+                        {tag}
+                      </div>
+                    ) : null;
+                  })()}
                 </td>
                 <td>{fmtDT(s.created_at)}</td>
                 {showBranchColumn && <td>{s.branch?.name || '—'}</td>}

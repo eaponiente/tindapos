@@ -13,11 +13,11 @@ import {
   ItemsIcon,
   LockIcon,
   MenuIcon,
-  SellIcon,
   StaffIcon,
+  TablesIcon,
 } from './Icons';
 import LockScreen from './LockScreen';
-import Sell from './Sell';
+import Service from './Service';
 import History from './History';
 import Inventory from './Inventory';
 import Employees from './Employees';
@@ -27,7 +27,7 @@ import ActivityLogs from './ActivityLogs';
 import AssistiveTouch from './AssistiveTouch';
 
 type Screen =
-  | 'sell'
+  | 'service'
   | 'history'
   | 'inventory'
   | 'categories'
@@ -55,7 +55,7 @@ function initialBranch(emp: Employee): number | null {
 }
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
-  { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
+  { key: 'service', label: 'Service', perm: 0, icon: TablesIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
@@ -68,7 +68,10 @@ function AppShell() {
   const { openModal, closeModal } = useUI();
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [screen, setScreen] = useState<Screen>('sell');
+  const [screen, setScreen] = useState<Screen>('service');
+  // Bumped whenever the Service tab is tapped, so tapping it always returns to
+  // the floor/orders landing (remounts the screen) even if you're mid-order.
+  const [serviceNonce, setServiceNonce] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -179,7 +182,7 @@ function AppShell() {
     }
     setSession(employee);
     setActiveBranchId(initialBranch(employee));
-    setScreen('sell');
+    setScreen('service');
   }
 
   async function handleLock() {
@@ -265,6 +268,7 @@ function AppShell() {
               className={'navMenuItem' + (screen === t.key ? ' active' : '')}
               onClick={() => {
                 setScreen(t.key);
+                if (t.key === 'service') setServiceNonce((n) => n + 1);
                 closeModal();
               }}
             >
@@ -331,7 +335,10 @@ function AppShell() {
           <button
             key={t.key}
             className={'tab navTab' + (screen === t.key ? ' active' : '')}
-            onClick={() => setScreen(t.key)}
+            onClick={() => {
+              setScreen(t.key);
+              if (t.key === 'service') setServiceNonce((n) => n + 1);
+            }}
           >
             <t.icon />
             {t.label}
@@ -348,8 +355,9 @@ function AppShell() {
         </button>
       </nav>
       <main>
-        {screen === 'sell' && (
-          <Sell
+        {screen === 'service' && (
+          <Service
+            key={serviceNonce}
             employee={session}
             branchId={activeBranchId}
             items={items}
