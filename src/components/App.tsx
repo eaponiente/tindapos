@@ -61,7 +61,7 @@ function initialBranch(emp: Employee): number | null {
 }
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
-  { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
+  { key: 'sell', label: 'Counter', perm: 0, icon: SellIcon },
   { key: 'tables', label: 'Tables', perm: 0, icon: TablesIcon },
   { key: 'orders', label: 'Orders', perm: 0, icon: OrdersIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },

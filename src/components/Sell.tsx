@@ -417,7 +417,7 @@ export default function Sell({
             ← Back
           </button>
         )}
-        <h2>{session ? session.title : 'Sell'}</h2>
+        <h2>{session ? session.title : 'Counter'}</h2>
         <div className="grow"></div>
         {arranging ? (
           <>
