@@ -359,4 +359,85 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   .tableWrap th,.tableWrap td{white-space:nowrap;}
   .branchTag{font-size:12px; padding:3px 10px;}
 }
+/* ─── Restaurant tables (floor plan, session panel, pickers) ────────────────*/
+.floorLegend{display:flex; gap:14px; font-size:12.5px; color:var(--muted); align-items:center;}
+.floorLegend span{display:inline-flex; align-items:center; gap:5px;}
+.floorLegend .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+.dot.free{background:var(--ok);} .dot.busy{background:var(--danger);} .dot.pay{background:#2F6DD0;}
+
+.floorGrid{flex:1; overflow-y:auto; padding:8px 20px 24px; display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); grid-auto-rows:max-content; gap:14px; align-content:start;}
+.tableCard{position:relative; text-align:left; background:var(--panel); border:1px solid var(--line);
+  border-left:6px solid var(--line); border-radius:var(--radius); padding:14px 16px; min-height:118px;
+  display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow); transition:transform .05s, box-shadow .15s;}
+.tableCard:hover{box-shadow:var(--shadow-lift);}
+.tableCard:active{transform:scale(.98);}
+.tableCard.free{border-left-color:var(--ok);}
+.tableCard.busy{border-left-color:var(--danger); background:linear-gradient(180deg,#FFF8F7,#fff);}
+.tableCard.pay{border-left-color:#2F6DD0; background:linear-gradient(180deg,#F5F9FF,#fff);}
+.tcTop{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.tcNum{font-weight:800; font-size:18px; letter-spacing:-.02em;}
+.tcStatus{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:999px;}
+.tcStatus.free{background:rgba(46,139,87,.14); color:#1f6b41;}
+.tcStatus.busy{background:rgba(196,72,59,.14); color:#a5382d;}
+.tcStatus.pay{background:rgba(47,109,208,.14); color:#255cb0;}
+.tcBody{display:flex; flex-direction:column; gap:3px;}
+.tcTotal{font-size:22px; font-weight:800; letter-spacing:-.02em;}
+.tcMeta{font-size:13px; color:var(--muted);}
+.tcSeats{font-size:14px; color:var(--muted); font-weight:600;}
+.tcTapHint{font-size:12.5px; color:var(--gold-dark); font-weight:700;}
+
+/* Session panel */
+.tblPax{font-size:14px; font-weight:700; color:var(--ink); background:var(--gold-tint); padding:4px 10px; border-radius:999px;}
+.tblSessionNo{font-size:13px; color:var(--muted);}
+.sessionWrap{flex:1; display:flex; gap:16px; overflow:hidden; padding:8px 20px 20px;}
+.sessionOrder{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;}
+.roundBlock{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+.roundHead{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:var(--paper);
+  font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);}
+.roundHead span{font-weight:600; text-transform:none; letter-spacing:0;}
+.roundLine{display:flex; align-items:baseline; gap:10px; padding:8px 14px; border-top:1px solid var(--line); font-size:15px;}
+.roundLine .q{font-weight:800; min-width:34px; color:var(--gold-dark);}
+.roundLine .nm{flex:1;}
+.roundLine .amt{font-variant-numeric:tabular-nums; font-weight:600;}
+.sessionSide{width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:10px;}
+.sessionTotal{display:flex; justify-content:space-between; align-items:baseline; padding:14px 16px;
+  background:var(--ink); color:#fff; border-radius:12px;}
+.sessionTotal b{font-size:26px; letter-spacing:-.02em;}
+.tblAction{width:100%; padding:16px; border-radius:12px; font-size:16px; font-weight:700; background:var(--panel);
+  border:1px solid var(--line); box-shadow:var(--shadow); transition:transform .05s;}
+.tblAction:active{transform:scale(.98);}
+.tblAction:disabled{opacity:.4;}
+.tblAction.add{background:var(--gold-tint); border-color:var(--gold);}
+.tblAction.pay{background:var(--ok); color:#fff; border-color:var(--ok); font-size:18px;}
+.tblAction.danger{color:var(--danger); border-color:rgba(196,72,59,.4);}
+.tblActionGrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:2px;}
+.tblActionGrid .tblAction{font-size:14px; padding:14px 10px;}
+
+/* Pax + picker modals */
+.paxRow{display:flex; align-items:center; justify-content:center; gap:18px; margin:14px 0;}
+.paxBtn{width:52px; height:52px; border-radius:14px; background:var(--paper); border:1px solid var(--line);
+  font-size:26px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+.paxBtn:active{transform:scale(.95);}
+.paxNum{font-size:34px; font-weight:800; min-width:54px; text-align:center;}
+.paxQuick{display:grid; grid-template-columns:repeat(6,1fr); gap:8px;}
+.paxQuick button{padding:12px 0; border-radius:10px; background:var(--paper); border:1px solid var(--line); font-weight:700;}
+.paxQuick button.sel{background:var(--ink); color:#fff; border-color:var(--ink);}
+.pickerGrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px;}
+.pickCard{padding:14px 8px; border-radius:12px; background:var(--panel); border:2px solid var(--line);
+  display:flex; flex-direction:column; align-items:center; gap:3px; font-weight:700; font-size:15px;}
+.pickCard small{font-weight:600; font-size:11.5px; color:var(--muted);}
+.pickCard.sel{border-color:var(--gold); background:var(--gold-tint);}
+.pickCard.release{border-color:var(--danger); background:rgba(196,72,59,.1);}
+.pickCard.release small{color:var(--danger);}
+
+@media (max-width:860px){
+  .floorGrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:8px 12px 90px;}
+  .tableCard{min-height:104px; padding:12px;}
+  .tcNum{font-size:16px;} .tcTotal{font-size:19px;}
+  .floorLegend{display:none;}
+  /* Session panel stacks: order on top, actions below */
+  .sessionWrap{flex-direction:column; padding:8px 12px 90px; overflow-y:auto;}
+  .sessionSide{width:auto;}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}

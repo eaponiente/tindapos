@@ -6,6 +6,16 @@ import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
 import type { Category, Employee, Item, PaymentMethod, Sale } from '@/lib/types';
 
+/** When present, Sell runs in "add to table" mode: the Charge button becomes
+ *  "Add to Table" (appends a round to the session) and payment/discount/arrange
+ *  are hidden. Absent = the normal quick-sale flow, unchanged. */
+export interface SellSessionCtx {
+  id: number;
+  label: string; // e.g. "3 + 4"
+  onAdded: () => void; // a round was added — return to the table panel
+  onCancel: () => void; // leave without adding
+}
+
 interface SellProps {
   employee: Employee;
   branchId: number | null;
@@ -13,6 +23,7 @@ interface SellProps {
   categories: Category[];
   reloadItems: () => Promise<void>;
   isOwner: boolean;
+  session?: SellSessionCtx;
 }
 
 interface TicketLine {
@@ -27,6 +38,7 @@ export default function Sell({
   categories,
   reloadItems,
   isOwner,
+  session,
 }: SellProps) {
   const { toast, openModal, closeModal } = useUI();
   const [cat, setCat] = useState('All');
@@ -250,6 +262,29 @@ export default function Sell({
     }
   }
 
+  // Add-to-table mode: append the current ticket as a new round on the open
+  // session, then hand control back to the table panel. No payment here.
+  async function addToSession() {
+    if (!session || !ticket.length) return;
+    setPlacing(true);
+    try {
+      await api.addSessionRound(
+        session.id,
+        ticket.map((l) => ({ item_id: l.item.id, qty: l.qty })),
+        employee.id,
+      );
+      setTicket([]);
+      setDiscountPct(0);
+      setDiscountLabel('');
+      toast(`Added to Table ${session.label}`);
+      session.onAdded();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not add the order');
+    } finally {
+      setPlacing(false);
+    }
+  }
+
   function showReceipt(sale: Sale) {
     openModal(
       <>
@@ -351,7 +386,12 @@ export default function Sell({
   return (
     <section className="screen">
       <div className="topbar">
-        <h2>Sell</h2>
+        {session && (
+          <button className="btn" onClick={session.onCancel} title="Back to tables">
+            ← Tables
+          </button>
+        )}
+        <h2>{session ? `Table ${session.label}` : 'Sell'}</h2>
         <div className="grow"></div>
         {arranging ? (
           <>
@@ -379,7 +419,7 @@ export default function Sell({
             >
               {simple ? '🖼 Photos' : '≣ Simple'}
             </button>
-            {isOwner && (
+            {isOwner && !session && (
               <button className="btn" onClick={enterArrange} title="Rearrange the product tiles">
                 ↕ Arrange
               </button>
@@ -452,21 +492,35 @@ export default function Sell({
               <span>Subtotal</span>
               <span>{peso(subtotal)}</span>
             </div>
-            <div className="totRow">
-              <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
-              <span>{discount ? '−' + peso(discount) : peso(0)}</span>
-            </div>
+            {!session && (
+              <div className="totRow">
+                <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
+                <span>{discount ? '−' + peso(discount) : peso(0)}</span>
+              </div>
+            )}
             <div className="totRow grand">
               <span>Total</span>
               <span>{peso(total)}</span>
             </div>
-            <button id="chargeBtn" disabled={!ticket.length || placing} onClick={openPayment}>
-              {ticket.length ? `Charge ${peso(total)}` : 'Charge'}
+            <button
+              id="chargeBtn"
+              disabled={!ticket.length || placing}
+              onClick={session ? addToSession : openPayment}
+            >
+              {session
+                ? ticket.length
+                  ? `Add ${peso(total)} to Table`
+                  : 'Add order'
+                : ticket.length
+                  ? `Charge ${peso(total)}`
+                  : 'Charge'}
             </button>
             <div className="ticketTools">
-              <button className="btn small" onClick={askDiscount}>
-                Add discount
-              </button>
+              {!session && (
+                <button className="btn small" onClick={askDiscount}>
+                  Add discount
+                </button>
+              )}
               <button
                 className="btn small danger"
                 onClick={() => {
@@ -589,7 +643,7 @@ function newIdempotencyKey(): string {
   }
 }
 
-interface PaymentModalProps {
+export interface PaymentModalProps {
   total: number;
   method: PaymentMethod;
   quicks: number[];
@@ -754,7 +808,7 @@ function GcashLogo() {
   );
 }
 
-function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
+export function PaymentModal({ total, method, quicks, onMethod, onConfirm, onCancel }: PaymentModalProps) {
   const [tendered, setTendered] = useState(Math.ceil(total));
   const [submitting, setSubmitting] = useState(false);
   const change = tendered >= total ? tendered - total : 0;

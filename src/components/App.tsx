@@ -15,9 +15,11 @@ import {
   MenuIcon,
   SellIcon,
   StaffIcon,
+  TablesIcon,
 } from './Icons';
 import LockScreen from './LockScreen';
 import Sell from './Sell';
+import Tables from './Tables';
 import History from './History';
 import Inventory from './Inventory';
 import Employees from './Employees';
@@ -28,6 +30,7 @@ import AssistiveTouch from './AssistiveTouch';
 
 type Screen =
   | 'sell'
+  | 'tables'
   | 'history'
   | 'inventory'
   | 'categories'
@@ -56,6 +59,7 @@ function initialBranch(emp: Employee): number | null {
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
+  { key: 'tables', label: 'Tables', perm: 0, icon: TablesIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
@@ -350,6 +354,16 @@ function AppShell() {
       <main>
         {screen === 'sell' && (
           <Sell
+            employee={session}
+            branchId={activeBranchId}
+            items={items}
+            categories={categories}
+            reloadItems={reloadItems}
+            isOwner={isOwner}
+          />
+        )}
+        {screen === 'tables' && (
+          <Tables
             employee={session}
             branchId={activeBranchId}
             items={items}

@@ -122,3 +122,54 @@ export interface ItemStats {
   out: number;
   stock_value: number;
 }
+
+// ── Restaurant tables & dine-in sessions ────────────────────────────────────
+export type TableSessionStatus = 'open' | 'for_payment' | 'closed' | 'void';
+
+/** One physical table on the floor, with its live status derived from any
+ *  active session (from the table_floor view). */
+export interface FloorTable {
+  table_id: number;
+  branch_id: number;
+  table_number: number;
+  capacity: number;
+  grid_x: number | null;
+  grid_y: number | null;
+  // present only when the table is part of an active session
+  session_id: number | null;
+  session_status: TableSessionStatus | null;
+  customer_count: number | null;
+  opened_at: string | null;
+  session_tables_label: string | null; // e.g. "3 + 4" for a combined session
+  order_total: number | null;
+  item_count: number | null;
+}
+
+/** A line in a session's running order. */
+export interface TableSessionItem {
+  id: number;
+  session_id: number;
+  item_id: number | null;
+  name: string;
+  price: number;
+  qty: number;
+  round: number;
+  created_at: string;
+}
+
+/** Full detail of one table session (the open tab). */
+export interface TableSession {
+  id: number;
+  branch_id: number;
+  customer_count: number;
+  status: TableSessionStatus;
+  opened_by: number | null;
+  opened_by_name: string | null;
+  opened_at: string;
+  closed_at: string | null;
+  sale_id: number | null;
+  tables: { table_id: number; table_number: number }[]; // currently occupied
+  tables_label: string; // e.g. "3 + 4"
+  items: TableSessionItem[];
+  total: number;
+}

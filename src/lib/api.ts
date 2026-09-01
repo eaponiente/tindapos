@@ -6,6 +6,7 @@ import type {
   Branch,
   Category,
   Employee,
+  FloorTable,
   Item,
   ItemStats,
   PaymentMethod,
@@ -13,6 +14,7 @@ import type {
   SaleStats,
   SalesPage,
   Shift,
+  TableSession,
 } from './types';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -140,5 +142,44 @@ export const api = {
     request<Sale>(`/sales/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ payment_method }),
+    }),
+
+  // ── Restaurant tables & dine-in sessions ─────────────────────────────────
+  floor: (branchId: number) => request<FloorTable[]>(`/tables?branch_id=${branchId}`),
+  session: (id: number) => request<TableSession>(`/tables/sessions/${id}`),
+  openSession: (data: {
+    branch_id: number;
+    table_ids: number[];
+    customer_count: number;
+    employee_id: number;
+  }) => request<{ session_id: number }>('/tables/sessions', { method: 'POST', body: JSON.stringify(data) }),
+  addSessionRound: (id: number, lines: { item_id: number; qty: number }[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/rounds`, {
+      method: 'POST',
+      body: JSON.stringify({ lines, employee_id }),
+    }),
+  combineTables: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/combine`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  transferSession: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  separateTables: (id: number, table_ids: number[], employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/separate`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
+  closeSession: (
+    id: number,
+    data: { payment_method: PaymentMethod; tendered: number; discount_pct: number; employee_id: number },
+  ) => request<Sale>(`/tables/sessions/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
+  voidSession: (id: number, employee_id: number) =>
+    request<{ ok: true }>(`/tables/sessions/${id}/void`, {
+      method: 'POST',
+      body: JSON.stringify({ employee_id }),
     }),
 };
