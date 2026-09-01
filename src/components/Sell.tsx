@@ -445,7 +445,7 @@ export default function Sell({
             >
               {simple ? '🖼 Photos' : '≣ Simple'}
             </button>
-            {isOwner && !session && (
+            {isOwner && (
               <button className="btn" onClick={enterArrange} title="Rearrange the product tiles">
                 ↕ Arrange
               </button>
