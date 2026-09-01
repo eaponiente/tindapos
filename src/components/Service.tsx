@@ -95,23 +95,35 @@ export default function Service({ employee, branchId, items, categories, reloadI
   }
 
   // ── Start flows ───────────────────────────────────────────────────────────
-  function startTable(table: FloorTable) {
+  // Tapping a free table starts ordering right away; the diner count is set
+  // afterwards from the table panel.
+  async function startTable(table: FloorTable) {
+    try {
+      const { session_id } = await api.openSession({
+        branch_id: branchId!,
+        table_ids: [table.table_id],
+        customer_count: 1,
+        employee_id: employee.id,
+      });
+      setMode({ screen: 'order', session: await api.session(session_id) });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not start the order');
+    }
+  }
+
+  function editDiners(session: TableSession) {
     openModal(
-      <CustomerCountModal
-        tableLabel={String(table.table_number)}
+      <DinerCountModal
+        initial={session.customer_count}
         onCancel={closeModal}
         onConfirm={async (count) => {
           try {
-            const { session_id } = await api.openSession({
-              branch_id: branchId!,
-              table_ids: [table.table_id],
-              customer_count: count,
-              employee_id: employee.id,
-            });
+            const updated = await api.updateSessionCount(session.id, count);
             closeModal();
-            setMode({ screen: 'order', session: await api.session(session_id) });
+            setMode({ screen: 'panel', session: updated });
+            loadAll();
           } catch (e) {
-            toast(e instanceof Error ? e.message : 'Could not start the order');
+            toast(e instanceof Error ? e.message : 'Could not update the diner count');
           }
         }}
       />,
@@ -342,7 +354,11 @@ export default function Service({ employee, branchId, items, categories, reloadI
           <h2>
             {dine ? `Table ${s.tables_label}` : `${TYPE_EMOJI[s.service_type]} ${orderTypeLabel(s.service_type)}`}
           </h2>
-          {dine && <span className="tblPax">👥 {s.customer_count}</span>}
+          {dine && (
+            <button className="tblPax editable" onClick={() => editDiners(s)} title="Edit diners">
+              👥 {s.customer_count} ✎
+            </button>
+          )}
           <div className="grow"></div>
           <span className="tblSessionNo">{dine ? 'Session' : 'Order'} #{s.id}</span>
         </div>
@@ -515,23 +531,22 @@ export default function Service({ employee, branchId, items, categories, reloadI
 
 // ── Modals ───────────────────────────────────────────────────────────────────
 
-function CustomerCountModal({
-  tableLabel,
+function DinerCountModal({
+  initial,
   onConfirm,
   onCancel,
 }: {
-  tableLabel: string;
+  initial: number;
   onConfirm: (count: number) => void;
   onCancel: () => void;
 }) {
-  const [count, setCount] = useState(2);
+  const [count, setCount] = useState(Math.max(1, initial || 1));
   return (
     <>
       <header>
-        <h3>Start order — Table {tableLabel}</h3>
+        <h3>Number of diners</h3>
       </header>
       <div className="bodyPad">
-        <label style={{ fontWeight: 600, fontSize: 14 }}>Number of customers</label>
         <div className="paxRow">
           <button className="paxBtn" onClick={() => setCount((c) => Math.max(1, c - 1))}>
             −
@@ -554,7 +569,7 @@ function CustomerCountModal({
           Cancel
         </button>
         <button className="btn primary" onClick={() => onConfirm(count)}>
-          Start order
+          Save
         </button>
       </footer>
     </>

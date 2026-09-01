@@ -151,6 +151,11 @@ export const api = {
   sessionReserved: (branchId: number) =>
     request<Record<number, number>>(`/tables/reserved?branch_id=${branchId}`),
   session: (id: number) => request<TableSession>(`/tables/sessions/${id}`),
+  updateSessionCount: (id: number, customer_count: number) =>
+    request<TableSession>(`/tables/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ customer_count }),
+    }),
   openSession: (data: {
     branch_id: number;
     table_ids: number[];
