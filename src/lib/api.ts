@@ -204,7 +204,7 @@ export const api = {
     employee_id: number;
   }) => request<{ session_id: number }>('/tables/orders', { method: 'POST', body: JSON.stringify(data) }),
   seatOrder: (id: number, table_ids: number[], employee_id: number) =>
-    request<{ ok: true }>(`/tables/sessions/${id}/seat`, {
+    request<TableSession>(`/tables/sessions/${id}/seat`, {
       method: 'POST',
       body: JSON.stringify({ table_ids, employee_id }),
     }),

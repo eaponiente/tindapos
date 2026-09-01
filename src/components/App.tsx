@@ -13,15 +13,13 @@ import {
   ItemsIcon,
   LockIcon,
   MenuIcon,
-  OrdersIcon,
   SellIcon,
   StaffIcon,
   TablesIcon,
 } from './Icons';
 import LockScreen from './LockScreen';
 import Sell from './Sell';
-import Tables from './Tables';
-import Orders from './Orders';
+import Service from './Service';
 import History from './History';
 import Inventory from './Inventory';
 import Employees from './Employees';
@@ -32,8 +30,7 @@ import AssistiveTouch from './AssistiveTouch';
 
 type Screen =
   | 'sell'
-  | 'tables'
-  | 'orders'
+  | 'service'
   | 'history'
   | 'inventory'
   | 'categories'
@@ -62,8 +59,7 @@ function initialBranch(emp: Employee): number | null {
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Counter', perm: 0, icon: SellIcon },
-  { key: 'tables', label: 'Tables', perm: 0, icon: TablesIcon },
-  { key: 'orders', label: 'Orders', perm: 0, icon: OrdersIcon },
+  { key: 'service', label: 'Service', perm: 0, icon: TablesIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
@@ -77,11 +73,9 @@ function AppShell() {
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [screen, setScreen] = useState<Screen>('sell');
-  // Bumped whenever the Tables/Orders tab is tapped, so tapping it always
-  // returns to the floor plan / list (remounts the screen) even if you're
-  // mid-order.
-  const [tablesNonce, setTablesNonce] = useState(0);
-  const [ordersNonce, setOrdersNonce] = useState(0);
+  // Bumped whenever the Service tab is tapped, so tapping it always returns to
+  // the floor/orders landing (remounts the screen) even if you're mid-order.
+  const [serviceNonce, setServiceNonce] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -278,8 +272,7 @@ function AppShell() {
               className={'navMenuItem' + (screen === t.key ? ' active' : '')}
               onClick={() => {
                 setScreen(t.key);
-                if (t.key === 'tables') setTablesNonce((n) => n + 1);
-                if (t.key === 'orders') setOrdersNonce((n) => n + 1);
+                if (t.key === 'service') setServiceNonce((n) => n + 1);
                 closeModal();
               }}
             >
@@ -348,8 +341,7 @@ function AppShell() {
             className={'tab navTab' + (screen === t.key ? ' active' : '')}
             onClick={() => {
               setScreen(t.key);
-              if (t.key === 'tables') setTablesNonce((n) => n + 1);
-              if (t.key === 'orders') setOrdersNonce((n) => n + 1);
+              if (t.key === 'service') setServiceNonce((n) => n + 1);
             }}
           >
             <t.icon />
@@ -377,20 +369,9 @@ function AppShell() {
             isOwner={isOwner}
           />
         )}
-        {screen === 'tables' && (
-          <Tables
-            key={tablesNonce}
-            employee={session}
-            branchId={activeBranchId}
-            items={items}
-            categories={categories}
-            reloadItems={reloadItems}
-            isOwner={isOwner}
-          />
-        )}
-        {screen === 'orders' && (
-          <Orders
-            key={ordersNonce}
+        {screen === 'service' && (
+          <Service
+            key={serviceNonce}
             employee={session}
             branchId={activeBranchId}
             items={items}
