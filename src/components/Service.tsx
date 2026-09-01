@@ -37,6 +37,15 @@ const TYPE_EMOJI: Record<ServiceType, string> = {
   pick_up: '🛍',
 };
 
+function fmtTime(iso: string | null): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
 function sessionTitle(s: TableSession): string {
   if (s.service_type === 'dine_in') return `Table ${s.tables_label}`;
   const t = orderTypeLabel(s.service_type);
@@ -95,8 +104,22 @@ export default function Service({ employee, branchId, items, categories, reloadI
   }
 
   // ── Start flows ───────────────────────────────────────────────────────────
-  // Tapping a free table starts ordering right away; the diner count is set
-  // afterwards from the table panel.
+  // Tapping a free table asks Dine-in or Reservation first.
+  function chooseTableMode(table: FloorTable) {
+    openModal(
+      <TableStartModal
+        tableNumber={table.table_number}
+        onCancel={closeModal}
+        onDineIn={() => {
+          closeModal();
+          startTable(table);
+        }}
+        onReserve={() => openReservation(table)}
+      />,
+    );
+  }
+
+  // Dine-in: start ordering right away; diner count is set afterwards.
   async function startTable(table: FloorTable) {
     try {
       const { session_id } = await api.openSession({
@@ -109,6 +132,32 @@ export default function Service({ employee, branchId, items, categories, reloadI
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not start the order');
     }
+  }
+
+  // Reservation: capture name + arrival time (holds the table), then order.
+  function openReservation(table: FloorTable) {
+    openModal(
+      <ReservationModal
+        tableNumber={table.table_number}
+        onCancel={closeModal}
+        onConfirm={async ({ name, reserved_at }) => {
+          try {
+            const { session_id } = await api.openSession({
+              branch_id: branchId!,
+              table_ids: [table.table_id],
+              customer_count: 1,
+              employee_id: employee.id,
+              customer_name: name,
+              reserved_at: reserved_at ?? undefined,
+            });
+            closeModal();
+            setMode({ screen: 'order', session: await api.session(session_id) });
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not reserve the table');
+          }
+        }}
+      />,
+    );
   }
 
   function editDiners(session: TableSession) {
@@ -150,7 +199,8 @@ export default function Service({ employee, branchId, items, categories, reloadI
   async function leaveOrder(session: TableSession) {
     try {
       const fresh = await api.session(session.id);
-      if (fresh.items.length === 0 && fresh.status === 'open') {
+      // Keep empty reservations (they hold the table); only discard empty walk-in tabs.
+      if (fresh.items.length === 0 && fresh.status === 'open' && !fresh.reserved_at) {
         await api.voidSession(session.id, employee.id);
         backToLanding();
         return;
@@ -364,6 +414,12 @@ export default function Service({ employee, branchId, items, categories, reloadI
         </div>
         <div className="sessionWrap">
           <div className="sessionOrder">
+            {dine && s.reserved_at && (
+              <div className="customerCard">
+                <div className="cName">🕒 Reservation · arrives {fmtTime(s.reserved_at)}</div>
+                {s.customer_name && <div>{s.customer_name}</div>}
+              </div>
+            )}
             {!dine && hasCustomer && (
               <div className="customerCard">
                 {s.customer_name && <div className="cName">{s.customer_name}</div>}
@@ -461,31 +517,52 @@ export default function Service({ employee, branchId, items, categories, reloadI
         <div className="serviceScroll">
           <div className="floorGrid">
             {floor.map((t) => {
-              const status = t.session_id === null ? 'free' : t.session_status === 'for_payment' ? 'pay' : 'busy';
+              const status =
+                t.session_id === null
+                  ? 'free'
+                  : t.reserved_at
+                    ? 'reserved'
+                    : t.session_status === 'for_payment'
+                      ? 'pay'
+                      : 'busy';
               const combined = (t.session_tables_label ?? '').includes('+');
               return (
                 <button
                   key={t.table_id}
                   className={'tableCard ' + status}
-                  onClick={() => (t.session_id ? openPanel(t.session_id) : startTable(t))}
+                  onClick={() => (t.session_id ? openPanel(t.session_id) : chooseTableMode(t))}
                 >
                   <div className="tcTop">
                     <span className="tcNum">
                       {combined ? `Table ${t.session_tables_label}` : `Table ${t.table_number}`}
                     </span>
                     <span className={'tcStatus ' + status}>
-                      {status === 'free' ? 'Available' : status === 'pay' ? 'For payment' : 'Occupied'}
+                      {status === 'free'
+                        ? 'Available'
+                        : status === 'reserved'
+                          ? 'Reserved'
+                          : status === 'pay'
+                            ? 'For payment'
+                            : 'Occupied'}
                     </span>
                   </div>
-                  {t.session_id ? (
-                    <div className="tcBody">
-                      <div className="tcTotal">{peso(t.order_total ?? 0)}</div>
-                      <div className="tcMeta">👥 {t.customer_count} · {t.item_count ?? 0} items</div>
-                    </div>
-                  ) : (
+                  {status === 'free' ? (
                     <div className="tcBody">
                       <div className="tcSeats">Seats {t.capacity}</div>
                       <div className="tcTapHint">Tap to start</div>
+                    </div>
+                  ) : status === 'reserved' ? (
+                    <div className="tcBody">
+                      <div className="tcResv">🕒 {fmtTime(t.reserved_at)}</div>
+                      <div className="tcMeta">
+                        {t.customer_name || 'Reserved'}
+                        {t.item_count ? ` · ${peso(t.order_total ?? 0)}` : ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="tcBody">
+                      <div className="tcTotal">{peso(t.order_total ?? 0)}</div>
+                      <div className="tcMeta">👥 {t.customer_count} · {t.item_count ?? 0} items</div>
                     </div>
                   )}
                 </button>
@@ -570,6 +647,93 @@ function DinerCountModal({
         </button>
         <button className="btn primary" onClick={() => onConfirm(count)}>
           Save
+        </button>
+      </footer>
+    </>
+  );
+}
+
+function TableStartModal({
+  tableNumber,
+  onDineIn,
+  onReserve,
+  onCancel,
+}: {
+  tableNumber: number;
+  onDineIn: () => void;
+  onReserve: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <header>
+        <h3>Table {tableNumber}</h3>
+      </header>
+      <div className="bodyPad">
+        <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 14 }}>How is this table being used?</p>
+        <div className="startChoice">
+          <button className="choiceCard" onClick={onDineIn}>
+            <span className="cEmoji">🍽</span>
+            <b>Dine-in</b>
+            <small>Start ordering now</small>
+          </button>
+          <button className="choiceCard" onClick={onReserve}>
+            <span className="cEmoji">🕒</span>
+            <b>Reservation</b>
+            <small>Hold the table for later</small>
+          </button>
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </footer>
+    </>
+  );
+}
+
+function ReservationModal({
+  tableNumber,
+  onConfirm,
+  onCancel,
+}: {
+  tableNumber: number;
+  onConfirm: (data: { name: string; reserved_at: string | null }) => void;
+  onCancel: () => void;
+}) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  const defv = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const [name, setName] = useState('');
+  const [arrival, setArrival] = useState(defv);
+  return (
+    <>
+      <header>
+        <h3>Reserve Table {tableNumber}</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="field">
+          <label>Customer name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan D." autoFocus />
+        </div>
+        <div className="field">
+          <label>Time of arrival</label>
+          <input type="datetime-local" value={arrival} onChange={(e) => setArrival(e.target.value)} />
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={!name.trim()}
+          onClick={() =>
+            onConfirm({ name: name.trim(), reserved_at: arrival ? new Date(arrival).toISOString() : null })
+          }
+        >
+          Reserve &amp; order
         </button>
       </footer>
     </>

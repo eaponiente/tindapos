@@ -13,12 +13,10 @@ import {
   ItemsIcon,
   LockIcon,
   MenuIcon,
-  SellIcon,
   StaffIcon,
   TablesIcon,
 } from './Icons';
 import LockScreen from './LockScreen';
-import Sell from './Sell';
 import Service from './Service';
 import History from './History';
 import Inventory from './Inventory';
@@ -29,7 +27,6 @@ import ActivityLogs from './ActivityLogs';
 import AssistiveTouch from './AssistiveTouch';
 
 type Screen =
-  | 'sell'
   | 'service'
   | 'history'
   | 'inventory'
@@ -58,7 +55,6 @@ function initialBranch(emp: Employee): number | null {
 }
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
-  { key: 'sell', label: 'Counter', perm: 0, icon: SellIcon },
   { key: 'service', label: 'Service', perm: 0, icon: TablesIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
@@ -72,7 +68,7 @@ function AppShell() {
   const { openModal, closeModal } = useUI();
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [screen, setScreen] = useState<Screen>('sell');
+  const [screen, setScreen] = useState<Screen>('service');
   // Bumped whenever the Service tab is tapped, so tapping it always returns to
   // the floor/orders landing (remounts the screen) even if you're mid-order.
   const [serviceNonce, setServiceNonce] = useState(0);
@@ -186,7 +182,7 @@ function AppShell() {
     }
     setSession(employee);
     setActiveBranchId(initialBranch(employee));
-    setScreen('sell');
+    setScreen('service');
   }
 
   async function handleLock() {
@@ -359,16 +355,6 @@ function AppShell() {
         </button>
       </nav>
       <main>
-        {screen === 'sell' && (
-          <Sell
-            employee={session}
-            branchId={activeBranchId}
-            items={items}
-            categories={categories}
-            reloadItems={reloadItems}
-            isOwner={isOwner}
-          />
-        )}
         {screen === 'service' && (
           <Service
             key={serviceNonce}

@@ -20,5 +20,15 @@ export const POST = handler(async (request: NextRequest) => {
   });
   if (error) return fail(error.message);
 
+  // Reservation extras (name + arrival time) — held on the same dine-in session.
+  const name = body.customer_name?.trim();
+  const reservedAt = body.reserved_at || null;
+  if (name || reservedAt) {
+    await db()
+      .from('table_sessions')
+      .update({ customer_name: name || null, reserved_at: reservedAt })
+      .eq('id', sessionId);
+  }
+
   return NextResponse.json({ session_id: sessionId }, { status: 201 });
 });

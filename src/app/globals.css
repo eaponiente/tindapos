@@ -375,6 +375,19 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .tableCard.free{border-left-color:var(--ok);}
 .tableCard.busy{border-left-color:var(--danger); background:linear-gradient(180deg,#FFF8F7,#fff);}
 .tableCard.pay{border-left-color:#2F6DD0; background:linear-gradient(180deg,#F5F9FF,#fff);}
+.tableCard.reserved{border-left-color:#8A5CD0; background:linear-gradient(180deg,#F7F4FF,#fff);}
+.tcStatus.reserved{background:rgba(138,92,208,.16); color:#6a45b0;}
+.tcResv{font-size:17px; font-weight:800; letter-spacing:-.01em; color:#6a45b0;}
+.dot.reserved{background:#8A5CD0;}
+
+/* Dine-in vs Reservation chooser */
+.startChoice{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.choiceCard{display:flex; flex-direction:column; align-items:center; gap:4px; padding:22px 12px; border-radius:14px;
+  background:var(--panel); border:1px solid var(--line); box-shadow:var(--shadow); font-size:16px;}
+.choiceCard b{font-size:17px;}
+.choiceCard small{color:var(--muted); font-size:12.5px;}
+.choiceCard .cEmoji{font-size:32px; line-height:1;}
+.choiceCard:active{transform:scale(.97);}
 .tcTop{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 .tcNum{font-weight:800; font-size:18px; letter-spacing:-.02em;}
 .tcStatus{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:999px;}

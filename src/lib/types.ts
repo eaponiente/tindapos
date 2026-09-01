@@ -141,7 +141,10 @@ export interface FloorTable {
   // present only when the table is part of an active session
   session_id: number | null;
   session_status: TableSessionStatus | null;
+  service_type: ServiceType | null;
   customer_count: number | null;
+  customer_name: string | null;
+  reserved_at: string | null; // set = reservation (arrival time)
   opened_at: string | null;
   session_tables_label: string | null; // e.g. "3 + 4" for a combined session
   order_total: number | null;
@@ -174,6 +177,7 @@ export interface TableSession {
   customer_phone: string | null;
   customer_address: string | null;
   customer_landmark: string | null;
+  reserved_at: string | null; // dine-in reservation arrival time (null = walk-in)
   opened_by: number | null;
   opened_by_name: string | null;
   opened_at: string;

@@ -161,6 +161,8 @@ export const api = {
     table_ids: number[];
     customer_count: number;
     employee_id: number;
+    customer_name?: string; // reservation only
+    reserved_at?: string; // reservation only (ISO arrival time)
   }) => request<{ session_id: number }>('/tables/sessions', { method: 'POST', body: JSON.stringify(data) }),
   addSessionRound: (id: number, lines: { item_id: number; qty: number }[], employee_id: number) =>
     request<TableSession>(`/tables/sessions/${id}/rounds`, {
