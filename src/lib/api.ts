@@ -197,11 +197,15 @@ export const api = {
   openOrder: (data: {
     branch_id: number;
     service_type: ServiceType;
-    customer_count: number;
     customer_name?: string;
     customer_phone?: string;
     customer_address?: string;
     customer_landmark?: string;
     employee_id: number;
   }) => request<{ session_id: number }>('/tables/orders', { method: 'POST', body: JSON.stringify(data) }),
+  seatOrder: (id: number, table_ids: number[], employee_id: number) =>
+    request<{ ok: true }>(`/tables/sessions/${id}/seat`, {
+      method: 'POST',
+      body: JSON.stringify({ table_ids, employee_id }),
+    }),
 };

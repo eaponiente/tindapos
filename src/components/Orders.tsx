@@ -6,7 +6,7 @@ import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
 import Sell, { orderTypeLabel } from './Sell';
 import { groupRounds, openPayBill, openSessionReceipt } from './sessionKit';
-import type { Category, Employee, Item, OrderTicket, ServiceType, TableSession } from '@/lib/types';
+import type { Category, Employee, FloorTable, Item, OrderTicket, ServiceType, TableSession } from '@/lib/types';
 
 interface OrdersProps {
   employee: Employee;
@@ -143,6 +143,42 @@ export default function Orders({ employee, branchId, items, categories, reloadIt
     }
   }
 
+  // Pick-up/take-out customer decided to eat in: seat the order at a table.
+  async function seatAtTable(session: TableSession) {
+    let free: FloorTable[] = [];
+    try {
+      free = (await api.floor(branchId!)).filter((t) => t.session_id === null);
+    } catch {
+      toast('Could not load tables');
+      return;
+    }
+    if (free.length === 0) {
+      toast('No available tables right now');
+      return;
+    }
+    openModal(
+      <SeatPickerModal
+        tables={free}
+        onCancel={closeModal}
+        onConfirm={async (ids) => {
+          try {
+            await api.seatOrder(session.id, ids, employee.id);
+            closeModal();
+            const labels = free
+              .filter((t) => ids.includes(t.table_id))
+              .map((t) => t.table_number)
+              .join(' + ');
+            toast(`Seated at Table ${labels} — now on the Tables screen`);
+            setMode({ screen: 'list' });
+            loadTickets();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not seat the order');
+          }
+        }}
+      />,
+    );
+  }
+
   function cancelOrder(session: TableSession) {
     openModal(
       <>
@@ -268,6 +304,11 @@ export default function Orders({ employee, branchId, items, categories, reloadIt
               💵 Pay bill
             </button>
             <div className="tblActionGrid">
+              {(s.service_type === 'pick_up' || s.service_type === 'take_out') && (
+                <button className="tblAction" onClick={() => seatAtTable(s)}>
+                  🍽 Dine in
+                </button>
+              )}
               <button className="tblAction danger" onClick={() => cancelOrder(s)}>
                 ✕ Cancel order
               </button>
@@ -324,7 +365,6 @@ function NewOrderModal({
 }: {
   onConfirm: (data: {
     service_type: ServiceType;
-    customer_count: number;
     customer_name?: string;
     customer_phone?: string;
     customer_address?: string;
@@ -337,7 +377,6 @@ function NewOrderModal({
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
-  const [count, setCount] = useState(1);
   const showAddress = type === 'delivery';
 
   return (
@@ -382,18 +421,6 @@ function NewOrderModal({
             </div>
           </>
         )}
-        <div className="field">
-          <label>Number of customers</label>
-          <div className="paxRow" style={{ margin: '4px 0 0' }}>
-            <button className="paxBtn" onClick={() => setCount((c) => Math.max(1, c - 1))}>
-              −
-            </button>
-            <span className="paxNum">{count}</span>
-            <button className="paxBtn" onClick={() => setCount((c) => c + 1)}>
-              ＋
-            </button>
-          </div>
-        </div>
       </div>
       <footer>
         <button className="btn" onClick={onCancel}>
@@ -404,7 +431,6 @@ function NewOrderModal({
           onClick={() =>
             onConfirm({
               service_type: type,
-              customer_count: count,
               customer_name: name.trim() || undefined,
               customer_phone: phone.trim() || undefined,
               customer_address: address.trim() || undefined,
@@ -413,6 +439,53 @@ function NewOrderModal({
           }
         >
           Start order
+        </button>
+      </footer>
+    </>
+  );
+}
+
+function SeatPickerModal({
+  tables,
+  onConfirm,
+  onCancel,
+}: {
+  tables: FloorTable[];
+  onConfirm: (ids: number[]) => void;
+  onCancel: () => void;
+}) {
+  const [picked, setPicked] = useState<number[]>([]);
+  const toggle = (id: number) =>
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  return (
+    <>
+      <header>
+        <h3>Seat at table</h3>
+      </header>
+      <div className="bodyPad">
+        <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 14 }}>
+          Pick the table(s) for this order. It becomes a dine-in table and the whole order moves with
+          it.
+        </p>
+        <div className="pickerGrid">
+          {tables.map((t) => (
+            <button
+              key={t.table_id}
+              className={'pickCard' + (picked.includes(t.table_id) ? ' sel' : '')}
+              onClick={() => toggle(t.table_id)}
+            >
+              Table {t.table_number}
+              <small>Seats {t.capacity}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn primary" disabled={picked.length === 0} onClick={() => onConfirm(picked)}>
+          Seat here
         </button>
       </footer>
     </>
