@@ -11,8 +11,8 @@ import type { Category, Employee, Item, PaymentMethod, Sale } from '@/lib/types'
  *  are hidden. Absent = the normal quick-sale flow, unchanged. */
 export interface SellSessionCtx {
   id: number;
-  label: string; // e.g. "3 + 4"
-  onAdded: () => void; // a round was added — return to the table panel
+  title: string; // header text, e.g. "Table 3 + 4" or "Delivery — Juan"
+  onAdded: () => void; // a round was added — return to the session panel
   onCancel: () => void; // leave without adding
 }
 
@@ -298,7 +298,7 @@ export default function Sell({
       setTicket([]);
       setDiscountPct(0);
       setDiscountLabel('');
-      toast(`Added to Table ${session.label}`);
+      toast('Order added');
       session.onAdded();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not add the order');
@@ -413,11 +413,11 @@ export default function Sell({
     <section className="screen">
       <div className="topbar">
         {session && (
-          <button className="btn" onClick={session.onCancel} title="Back to tables">
-            ← Tables
+          <button className="btn" onClick={session.onCancel} title="Back">
+            ← Back
           </button>
         )}
-        <h2>{session ? `Table ${session.label}` : 'Sell'}</h2>
+        <h2>{session ? session.title : 'Sell'}</h2>
         <div className="grow"></div>
         {arranging ? (
           <>
@@ -535,7 +535,7 @@ export default function Sell({
             >
               {session
                 ? ticket.length
-                  ? `Add ${peso(total)} to Table`
+                  ? `Add ${peso(total)}`
                   : 'Add order'
                 : ticket.length
                   ? `Charge ${peso(total)}`
@@ -575,12 +575,31 @@ export default function Sell({
   );
 }
 
+/** Human label for a sale's order type. */
+export function orderTypeLabel(type?: string | null): string {
+  switch (type) {
+    case 'dine_in':
+      return 'Dine-in';
+    case 'take_out':
+      return 'Take-out';
+    case 'delivery':
+      return 'Delivery';
+    case 'pick_up':
+      return 'Pick-up';
+    default:
+      return 'Counter';
+  }
+}
+
 export function receiptText(sale: Sale): string {
   let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
   s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${
     sale.employee?.name || sale.employee_name || '—'
   }\n`;
+  if (sale.table_label) s += `Table: ${sale.table_label}\n`;
+  else if (sale.order_type && sale.order_type !== 'counter') s += `${orderTypeLabel(sale.order_type)}\n`;
+  if (sale.customer_name) s += `Customer: ${sale.customer_name}\n`;
   s += '--------------------------------\n';
   sale.items.forEach((l) => {
     s += `${l.qty} x ${l.name}\n`;

@@ -4,16 +4,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import Sell, { PaymentModal, DiscountModal, receiptText, printReceipt } from './Sell';
-import type {
-  Category,
-  Employee,
-  FloorTable,
-  Item,
-  PaymentMethod,
-  Sale,
-  TableSession,
-} from '@/lib/types';
+import Sell from './Sell';
+import { groupRounds, openPayBill, openSessionReceipt } from './sessionKit';
+import type { Category, Employee, FloorTable, Item, TableSession } from '@/lib/types';
 
 interface TablesProps {
   employee: Employee;
@@ -119,127 +112,27 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
     }
   }
 
-  // ── Pay bill: Bill summary → (optional Senior/PWD discount) → payment ──────
-  // Reuses the existing DiscountModal + PaymentModal + create_sale checkout.
+  // ── Pay bill (shared bill → discount → payment → receipt flow) ────────────
   function payBill(session: TableSession) {
-    if (session.total <= 0) {
-      toast('This table has no items to pay for');
-      return;
-    }
-    const round2 = (x: number) => Math.round((x + Number.EPSILON) * 100) / 100;
-    let pct = 0;
-    let label = '';
-
-    const openBill = () => {
-      const discount = round2((session.total * pct) / 100);
-      const dueTotal = round2(session.total - discount);
-      openModal(
-        <BillModal
-          subtotal={session.total}
-          discount={discount}
-          discountLabel={label}
-          dueTotal={dueTotal}
-          onAddDiscount={openDiscount}
-          onClearDiscount={() => {
-            pct = 0;
-            label = '';
-            openBill();
-          }}
-          onProceed={openPay}
-          onCancel={closeModal}
-        />,
-      );
-    };
-
-    const openDiscount = () => {
-      openModal(
-        <DiscountModal
-          subtotal={session.total}
-          onApply={(p, l) => {
-            pct = p;
-            label = l;
-            openBill();
-          }}
-          onCancel={openBill}
-        />,
-      );
-    };
-
-    const openPay = () => {
-      const dueTotal = round2(session.total - round2((session.total * pct) / 100));
-      let method: PaymentMethod = 'cash';
-      const renderPay = () => {
-        const quicks = [
-          ...new Set([
-            Math.ceil(dueTotal),
-            Math.ceil(dueTotal / 50) * 50,
-            Math.ceil(dueTotal / 100) * 100,
-            Math.ceil(dueTotal / 500) * 500,
-          ]),
-        ];
-        openModal(
-          <PaymentModal
-            total={dueTotal}
-            method={method}
-            quicks={quicks}
-            onMethod={(m) => {
-              method = m;
-              renderPay();
-            }}
-            onConfirm={async (tendered) => {
-              try {
-                const sale = await api.closeSession(session.id, {
-                  payment_method: method,
-                  tendered: method === 'cash' ? tendered : dueTotal,
-                  discount_pct: pct,
-                  employee_id: employee.id,
-                });
-                await reloadItems(); // stock changed at pay time
-                showReceipt(sale);
-              } catch (e) {
-                toast(e instanceof Error ? e.message : 'Payment failed');
-              }
-            }}
-            onCancel={openBill}
-          />,
-        );
-      };
-      renderPay();
-    };
-
-    openBill();
-  }
-
-  function showReceipt(sale: Sale) {
-    openModal(
-      <>
-        <header>
-          <h3>Bill paid 🎉</h3>
-        </header>
-        <div className="bodyPad">
-          <pre className="receipt">{receiptText(sale)}</pre>
-        </div>
-        <footer>
-          <button
-            className="btn amber"
-            onClick={() => {
-              if (!printReceipt(sale)) toast('Allow pop-ups to print the receipt');
-            }}
-          >
-            🖨 Print receipt
-          </button>
-          <button
-            className="btn primary"
-            onClick={() => {
-              closeModal();
-              setMode({ screen: 'floor' });
-              loadFloor();
-            }}
-          >
-            Done
-          </button>
-        </footer>
-      </>,
+    openPayBill(
+      { openModal, closeModal, toast },
+      {
+        session,
+        employeeId: employee.id,
+        reloadItems,
+        onPaid: (sale) =>
+          openSessionReceipt(
+            { openModal, closeModal, toast },
+            {
+              sale,
+              title: 'Bill paid 🎉',
+              onDone: () => {
+                setMode({ screen: 'floor' });
+                loadFloor();
+              },
+            },
+          ),
+      },
     );
   }
 
@@ -349,6 +242,17 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
     );
   }
 
+  // Fix a mis-added item on an open table: adjust qty or remove (qty 0).
+  async function editItem(sessionId: number, lineId: number, qty: number) {
+    try {
+      const updated = await api.updateSessionItem(sessionId, lineId, qty, employee.id);
+      setMode({ screen: 'panel', session: updated });
+      loadFloor();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not update the item');
+    }
+  }
+
   function confirmAction(message: string, onYes: () => void, yesLabel = 'Confirm') {
     openModal(
       <>
@@ -382,7 +286,7 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
         isOwner={isOwner}
         session={{
           id: mode.session.id,
-          label: mode.session.tables_label,
+          title: `Table ${mode.session.tables_label}`,
           onAdded: () => refreshPanel(mode.session.id),
           onCancel: () => leaveOrder(mode.session),
         }}
@@ -420,6 +324,17 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
                       <span className="q">{l.qty}×</span>
                       <span className="nm">{l.name}</span>
                       <span className="amt">{peso(Number(l.price) * l.qty)}</span>
+                      <span className="lineEdit">
+                        <button onClick={() => editItem(s.id, l.id, l.qty - 1)} aria-label="Reduce quantity">
+                          −
+                        </button>
+                        <button onClick={() => editItem(s.id, l.id, l.qty + 1)} aria-label="Add one">
+                          ＋
+                        </button>
+                        <button className="rm" onClick={() => editItem(s.id, l.id, 0)} aria-label="Remove item">
+                          ✕
+                        </button>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -514,85 +429,7 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
   );
 }
 
-/** Group a session's items into rounds for the panel display. */
-function groupRounds(s: TableSession) {
-  const map = new Map<number, { round: number; at: string; lines: TableSession['items'] }>();
-  for (const l of s.items) {
-    const g = map.get(l.round);
-    if (g) {
-      g.lines.push(l);
-      if (l.created_at < g.at) g.at = l.created_at;
-    } else {
-      map.set(l.round, { round: l.round, at: l.created_at, lines: [l] });
-    }
-  }
-  return [...map.values()].sort((a, b) => a.round - b.round);
-}
-
 // ── Modals ───────────────────────────────────────────────────────────────────
-
-function BillModal({
-  subtotal,
-  discount,
-  discountLabel,
-  dueTotal,
-  onAddDiscount,
-  onClearDiscount,
-  onProceed,
-  onCancel,
-}: {
-  subtotal: number;
-  discount: number;
-  discountLabel: string;
-  dueTotal: number;
-  onAddDiscount: () => void;
-  onClearDiscount: () => void;
-  onProceed: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <>
-      <header>
-        <h3>Bill</h3>
-      </header>
-      <div className="bodyPad">
-        <div className="totRow">
-          <span>Subtotal</span>
-          <span>{peso(subtotal)}</span>
-        </div>
-        <div className="totRow">
-          <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
-          <span style={{ color: discount ? 'var(--danger)' : 'inherit' }}>
-            {discount ? '−' + peso(discount) : peso(0)}
-          </span>
-        </div>
-        <div className="totRow grand" style={{ fontSize: 18 }}>
-          <span>Total due</span>
-          <span>{peso(dueTotal)}</span>
-        </div>
-        <div style={{ marginTop: 14 }}>
-          {discount ? (
-            <button className="btn small" onClick={onClearDiscount}>
-              Remove discount
-            </button>
-          ) : (
-            <button className="btn small" onClick={onAddDiscount}>
-              🧓 Add Senior / PWD discount
-            </button>
-          )}
-        </div>
-      </div>
-      <footer>
-        <button className="btn" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="btn primary" onClick={onProceed}>
-          Proceed to payment
-        </button>
-      </footer>
-    </>
-  );
-}
 
 function CustomerCountModal({
   tableLabel,

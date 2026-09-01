@@ -10,9 +10,11 @@ import type {
   Item,
   ItemStats,
   PaymentMethod,
+  OrderTicket,
   Sale,
   SaleStats,
   SalesPage,
+  ServiceType,
   Shift,
   TableSession,
 } from './types';
@@ -160,6 +162,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ lines, employee_id }),
     }),
+  updateSessionItem: (id: number, line_id: number, qty: number, employee_id: number) =>
+    request<TableSession>(`/tables/sessions/${id}/items`, {
+      method: 'PATCH',
+      body: JSON.stringify({ line_id, qty, employee_id }),
+    }),
   combineTables: (id: number, table_ids: number[], employee_id: number) =>
     request<TableSession>(`/tables/sessions/${id}/combine`, {
       method: 'POST',
@@ -184,4 +191,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employee_id }),
     }),
+
+  // Take-out / delivery / pick-up order tickets (open, pay-later; no table)
+  orders: (branchId: number) => request<OrderTicket[]>(`/tables/orders?branch_id=${branchId}`),
+  openOrder: (data: {
+    branch_id: number;
+    service_type: ServiceType;
+    customer_count: number;
+    customer_name?: string;
+    customer_phone?: string;
+    customer_address?: string;
+    customer_landmark?: string;
+    employee_id: number;
+  }) => request<{ session_id: number }>('/tables/orders', { method: 'POST', body: JSON.stringify(data) }),
 };

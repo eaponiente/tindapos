@@ -13,6 +13,7 @@ import {
   ItemsIcon,
   LockIcon,
   MenuIcon,
+  OrdersIcon,
   SellIcon,
   StaffIcon,
   TablesIcon,
@@ -20,6 +21,7 @@ import {
 import LockScreen from './LockScreen';
 import Sell from './Sell';
 import Tables from './Tables';
+import Orders from './Orders';
 import History from './History';
 import Inventory from './Inventory';
 import Employees from './Employees';
@@ -31,6 +33,7 @@ import AssistiveTouch from './AssistiveTouch';
 type Screen =
   | 'sell'
   | 'tables'
+  | 'orders'
   | 'history'
   | 'inventory'
   | 'categories'
@@ -60,6 +63,7 @@ function initialBranch(emp: Employee): number | null {
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'sell', label: 'Sell', perm: 0, icon: SellIcon },
   { key: 'tables', label: 'Tables', perm: 0, icon: TablesIcon },
+  { key: 'orders', label: 'Orders', perm: 0, icon: OrdersIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
@@ -73,9 +77,11 @@ function AppShell() {
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [screen, setScreen] = useState<Screen>('sell');
-  // Bumped whenever the Tables tab is tapped, so tapping it always returns to
-  // the floor plan (remounts Tables) even if you're mid-order on a table.
+  // Bumped whenever the Tables/Orders tab is tapped, so tapping it always
+  // returns to the floor plan / list (remounts the screen) even if you're
+  // mid-order.
   const [tablesNonce, setTablesNonce] = useState(0);
+  const [ordersNonce, setOrdersNonce] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -273,6 +279,7 @@ function AppShell() {
               onClick={() => {
                 setScreen(t.key);
                 if (t.key === 'tables') setTablesNonce((n) => n + 1);
+                if (t.key === 'orders') setOrdersNonce((n) => n + 1);
                 closeModal();
               }}
             >
@@ -342,6 +349,7 @@ function AppShell() {
             onClick={() => {
               setScreen(t.key);
               if (t.key === 'tables') setTablesNonce((n) => n + 1);
+              if (t.key === 'orders') setOrdersNonce((n) => n + 1);
             }}
           >
             <t.icon />
@@ -372,6 +380,17 @@ function AppShell() {
         {screen === 'tables' && (
           <Tables
             key={tablesNonce}
+            employee={session}
+            branchId={activeBranchId}
+            items={items}
+            categories={categories}
+            reloadItems={reloadItems}
+            isOwner={isOwner}
+          />
+        )}
+        {screen === 'orders' && (
+          <Orders
+            key={ordersNonce}
             employee={session}
             branchId={activeBranchId}
             items={items}

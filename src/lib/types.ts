@@ -84,6 +84,9 @@ export interface Sale {
   change_due: number;
   refunded: boolean;
   created_at: string;
+  order_type?: string | null; // 'dine_in' | 'take_out' | 'delivery' | 'pick_up' | null
+  table_label?: string | null; // e.g. "3 + 4" for dine-in
+  customer_name?: string | null;
   employee?: { id: number; name: string } | null;
   items: SaleLine[];
 }
@@ -157,19 +160,42 @@ export interface TableSessionItem {
   created_at: string;
 }
 
-/** Full detail of one table session (the open tab). */
+export type ServiceType = 'dine_in' | 'take_out' | 'delivery' | 'pick_up';
+
+/** Full detail of one session — a dine-in table tab OR a take-out/delivery/
+ *  pick-up order ticket (no table, with a customer record). */
 export interface TableSession {
   id: number;
   branch_id: number;
   customer_count: number;
   status: TableSessionStatus;
+  service_type: ServiceType;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  customer_landmark: string | null;
   opened_by: number | null;
   opened_by_name: string | null;
   opened_at: string;
   closed_at: string | null;
   sale_id: number | null;
-  tables: { table_id: number; table_number: number }[]; // currently occupied
-  tables_label: string; // e.g. "3 + 4"
+  tables: { table_id: number; table_number: number }[]; // dine-in: occupied tables
+  tables_label: string; // e.g. "3 + 4" (empty for non-dine-in)
   items: TableSessionItem[];
   total: number;
+}
+
+/** One open non-dine-in order in the Orders list. */
+export interface OrderTicket {
+  id: number;
+  service_type: ServiceType;
+  status: TableSessionStatus;
+  customer_count: number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  customer_landmark: string | null;
+  opened_at: string;
+  total: number;
+  item_count: number;
 }
