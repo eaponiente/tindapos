@@ -687,7 +687,7 @@ interface DiscountModalProps {
 /** Discount dialog with a BIR-safe Senior/PWD mode (20% on only the seniors'
  *  pro-rata share, optional VAT exemption) and a manual Manager's mode. Both
  *  resolve to a ticket-level percentage, which is what checkout stores. */
-function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProps) {
+export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProps) {
   const [mode, setMode] = useState<'senior' | 'manager'>('senior');
   const [diners, setDiners] = useState('1');
   const [seniors, setSeniors] = useState('1');

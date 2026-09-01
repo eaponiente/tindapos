@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import Sell, { PaymentModal, receiptText, printReceipt } from './Sell';
+import Sell, { PaymentModal, DiscountModal, receiptText, printReceipt } from './Sell';
 import type {
   Category,
   Employee,
@@ -119,50 +119,95 @@ export default function Tables({ employee, branchId, items, categories, reloadIt
     }
   }
 
-  // ── Pay bill (reuses the existing PaymentModal + create_sale checkout) ─────
+  // ── Pay bill: Bill summary → (optional Senior/PWD discount) → payment ──────
+  // Reuses the existing DiscountModal + PaymentModal + create_sale checkout.
   function payBill(session: TableSession) {
     if (session.total <= 0) {
       toast('This table has no items to pay for');
       return;
     }
-    let method: PaymentMethod = 'cash';
-    const render = () => {
-      const quicks = [
-        ...new Set([
-          Math.ceil(session.total),
-          Math.ceil(session.total / 50) * 50,
-          Math.ceil(session.total / 100) * 100,
-          Math.ceil(session.total / 500) * 500,
-        ]),
-      ];
+    const round2 = (x: number) => Math.round((x + Number.EPSILON) * 100) / 100;
+    let pct = 0;
+    let label = '';
+
+    const openBill = () => {
+      const discount = round2((session.total * pct) / 100);
+      const dueTotal = round2(session.total - discount);
       openModal(
-        <PaymentModal
-          total={session.total}
-          method={method}
-          quicks={quicks}
-          onMethod={(m) => {
-            method = m;
-            render();
+        <BillModal
+          subtotal={session.total}
+          discount={discount}
+          discountLabel={label}
+          dueTotal={dueTotal}
+          onAddDiscount={openDiscount}
+          onClearDiscount={() => {
+            pct = 0;
+            label = '';
+            openBill();
           }}
-          onConfirm={async (tendered) => {
-            try {
-              const sale = await api.closeSession(session.id, {
-                payment_method: method,
-                tendered: method === 'cash' ? tendered : session.total,
-                discount_pct: 0,
-                employee_id: employee.id,
-              });
-              await reloadItems(); // stock changed at pay time
-              showReceipt(sale);
-            } catch (e) {
-              toast(e instanceof Error ? e.message : 'Payment failed');
-            }
-          }}
+          onProceed={openPay}
           onCancel={closeModal}
         />,
       );
     };
-    render();
+
+    const openDiscount = () => {
+      openModal(
+        <DiscountModal
+          subtotal={session.total}
+          onApply={(p, l) => {
+            pct = p;
+            label = l;
+            openBill();
+          }}
+          onCancel={openBill}
+        />,
+      );
+    };
+
+    const openPay = () => {
+      const dueTotal = round2(session.total - round2((session.total * pct) / 100));
+      let method: PaymentMethod = 'cash';
+      const renderPay = () => {
+        const quicks = [
+          ...new Set([
+            Math.ceil(dueTotal),
+            Math.ceil(dueTotal / 50) * 50,
+            Math.ceil(dueTotal / 100) * 100,
+            Math.ceil(dueTotal / 500) * 500,
+          ]),
+        ];
+        openModal(
+          <PaymentModal
+            total={dueTotal}
+            method={method}
+            quicks={quicks}
+            onMethod={(m) => {
+              method = m;
+              renderPay();
+            }}
+            onConfirm={async (tendered) => {
+              try {
+                const sale = await api.closeSession(session.id, {
+                  payment_method: method,
+                  tendered: method === 'cash' ? tendered : dueTotal,
+                  discount_pct: pct,
+                  employee_id: employee.id,
+                });
+                await reloadItems(); // stock changed at pay time
+                showReceipt(sale);
+              } catch (e) {
+                toast(e instanceof Error ? e.message : 'Payment failed');
+              }
+            }}
+            onCancel={openBill}
+          />,
+        );
+      };
+      renderPay();
+    };
+
+    openBill();
   }
 
   function showReceipt(sale: Sale) {
@@ -485,6 +530,69 @@ function groupRounds(s: TableSession) {
 }
 
 // ── Modals ───────────────────────────────────────────────────────────────────
+
+function BillModal({
+  subtotal,
+  discount,
+  discountLabel,
+  dueTotal,
+  onAddDiscount,
+  onClearDiscount,
+  onProceed,
+  onCancel,
+}: {
+  subtotal: number;
+  discount: number;
+  discountLabel: string;
+  dueTotal: number;
+  onAddDiscount: () => void;
+  onClearDiscount: () => void;
+  onProceed: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <header>
+        <h3>Bill</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="totRow">
+          <span>Subtotal</span>
+          <span>{peso(subtotal)}</span>
+        </div>
+        <div className="totRow">
+          <span>Discount {discountLabel ? `(${discountLabel})` : ''}</span>
+          <span style={{ color: discount ? 'var(--danger)' : 'inherit' }}>
+            {discount ? '−' + peso(discount) : peso(0)}
+          </span>
+        </div>
+        <div className="totRow grand" style={{ fontSize: 18 }}>
+          <span>Total due</span>
+          <span>{peso(dueTotal)}</span>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          {discount ? (
+            <button className="btn small" onClick={onClearDiscount}>
+              Remove discount
+            </button>
+          ) : (
+            <button className="btn small" onClick={onAddDiscount}>
+              🧓 Add Senior / PWD discount
+            </button>
+          )}
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn primary" onClick={onProceed}>
+          Proceed to payment
+        </button>
+      </footer>
+    </>
+  );
+}
 
 function CustomerCountModal({
   tableLabel,

@@ -73,6 +73,9 @@ function AppShell() {
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [screen, setScreen] = useState<Screen>('sell');
+  // Bumped whenever the Tables tab is tapped, so tapping it always returns to
+  // the floor plan (remounts Tables) even if you're mid-order on a table.
+  const [tablesNonce, setTablesNonce] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -269,6 +272,7 @@ function AppShell() {
               className={'navMenuItem' + (screen === t.key ? ' active' : '')}
               onClick={() => {
                 setScreen(t.key);
+                if (t.key === 'tables') setTablesNonce((n) => n + 1);
                 closeModal();
               }}
             >
@@ -335,7 +339,10 @@ function AppShell() {
           <button
             key={t.key}
             className={'tab navTab' + (screen === t.key ? ' active' : '')}
-            onClick={() => setScreen(t.key)}
+            onClick={() => {
+              setScreen(t.key);
+              if (t.key === 'tables') setTablesNonce((n) => n + 1);
+            }}
           >
             <t.icon />
             {t.label}
@@ -364,6 +371,7 @@ function AppShell() {
         )}
         {screen === 'tables' && (
           <Tables
+            key={tablesNonce}
             employee={session}
             branchId={activeBranchId}
             items={items}
