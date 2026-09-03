@@ -13,7 +13,7 @@ export const GET = handler(async (request: NextRequest) => {
   const { data: sessions, error } = await db()
     .from('table_sessions')
     .select(
-      'id, service_type, status, customer_count, customer_name, customer_phone, customer_address, customer_landmark, opened_at',
+      'id, service_type, status, customer_count, customer_name, customer_phone, customer_address, customer_landmark, reserved_at, opened_at',
     )
     .eq('branch_id', branchId)
     .neq('service_type', 'dine_in')
@@ -63,6 +63,11 @@ export const POST = handler(async (request: NextRequest) => {
     p_employee_id: body.employee_id,
   });
   if (error) return fail(error.message);
+
+  // Scheduled pickup / ready / delivery time (reuses the reserved_at column).
+  if (body.reserved_at) {
+    await db().from('table_sessions').update({ reserved_at: body.reserved_at }).eq('id', sessionId);
+  }
 
   return NextResponse.json({ session_id: sessionId }, { status: 201 });
 });

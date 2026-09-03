@@ -46,6 +46,10 @@ function fmtTime(iso: string | null): string {
   }
 }
 
+function schedLabel(t: ServiceType): string {
+  return t === 'pick_up' ? 'Pickup' : t === 'delivery' ? 'Deliver by' : 'Ready by';
+}
+
 function sessionTitle(s: TableSession): string {
   if (s.service_type === 'dine_in') return `Table ${s.tables_label}`;
   const t = orderTypeLabel(s.service_type);
@@ -199,8 +203,10 @@ export default function Service({ employee, branchId, items, categories, reloadI
   async function leaveOrder(session: TableSession) {
     try {
       const fresh = await api.session(session.id);
-      // Keep empty reservations (they hold the table); only discard empty walk-in tabs.
-      if (fresh.items.length === 0 && fresh.status === 'open' && !fresh.reserved_at) {
+      // Keep empty DINE-IN reservations (they hold the table); discard any other
+      // empty session backed out of (incl. empty orders that only have a time).
+      const isReservation = fresh.service_type === 'dine_in' && !!fresh.reserved_at;
+      if (fresh.items.length === 0 && fresh.status === 'open' && !isReservation) {
         await api.voidSession(session.id, employee.id);
         backToLanding();
         return;
@@ -420,6 +426,11 @@ export default function Service({ employee, branchId, items, categories, reloadI
                 {s.customer_name && <div>{s.customer_name}</div>}
               </div>
             )}
+            {!dine && s.reserved_at && (
+              <div className="customerCard schedCard">
+                <div className="cName">🕒 {schedLabel(s.service_type)} · {fmtTime(s.reserved_at)}</div>
+              </div>
+            )}
             {!dine && hasCustomer && (
               <div className="customerCard">
                 {s.customer_name && <div className="cName">{s.customer_name}</div>}
@@ -591,6 +602,9 @@ export default function Service({ employee, branchId, items, categories, reloadI
                     <span className="ocNo">#{t.id}</span>
                   </div>
                   <div className="ocName">{t.customer_name || 'Walk-in'}</div>
+                  {t.reserved_at && (
+                    <div className="ocTime">🕒 {schedLabel(t.service_type)} {fmtTime(t.reserved_at)}</div>
+                  )}
                   {t.customer_phone && <div className="ocMeta">📞 {t.customer_phone}</div>}
                   <div className="ocFoot">
                     <span className="ocTotal">{peso(t.total)}</span>
@@ -750,15 +764,21 @@ function NewOrderModal({
     customer_phone?: string;
     customer_address?: string;
     customer_landmark?: string;
+    reserved_at?: string;
   }) => void;
   onCancel: () => void;
 }) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const soon = new Date(Date.now() + 30 * 60000); // default ~30 min out
+  const defTime = `${soon.getFullYear()}-${pad(soon.getMonth() + 1)}-${pad(soon.getDate())}T${pad(soon.getHours())}:${pad(soon.getMinutes())}`;
   const [type, setType] = useState<ServiceType>('take_out');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
+  const [time, setTime] = useState(defTime);
   const showAddress = type === 'delivery';
+  const timeLabel = type === 'pick_up' ? 'Pickup time' : type === 'delivery' ? 'Deliver by' : 'Ready by';
   return (
     <>
       <header>
@@ -796,6 +816,10 @@ function NewOrderModal({
             </div>
           </>
         )}
+        <div className="field">
+          <label>{timeLabel}</label>
+          <input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} />
+        </div>
       </div>
       <footer>
         <button className="btn" onClick={onCancel}>
@@ -810,6 +834,7 @@ function NewOrderModal({
               customer_phone: phone.trim() || undefined,
               customer_address: address.trim() || undefined,
               customer_landmark: landmark.trim() || undefined,
+              reserved_at: time ? new Date(time).toISOString() : undefined,
             })
           }
         >

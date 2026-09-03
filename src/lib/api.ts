@@ -208,6 +208,7 @@ export const api = {
     customer_phone?: string;
     customer_address?: string;
     customer_landmark?: string;
+    reserved_at?: string; // scheduled pickup / ready / delivery time (ISO)
     employee_id: number;
   }) => request<{ session_id: number }>('/tables/orders', { method: 'POST', body: JSON.stringify(data) }),
   seatOrder: (id: number, table_ids: number[], employee_id: number) =>
