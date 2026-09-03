@@ -647,6 +647,29 @@ export function printReceipt(sale: Sale): boolean {
   return printDoc(`Receipt #${sale.id}`, receiptText(sale));
 }
 
+/** Send a receipt to a Bluetooth 58mm thermal printer via the Android "RawBT"
+ *  print-bridge app. The receipt is already 32-column monospace, so it prints
+ *  as-is; a few blank lines feed the paper for a clean tear-off. Requires an
+ *  Android device with RawBT installed and the printer paired. Returns false if
+ *  the bridge couldn't be launched.
+ *
+ *  NOTE: the exact RawBT payload encoding is confirmed on the real device — if
+ *  the print comes out garbled or blank, we switch the encoding here. */
+export function printThermal(sale: Sale): boolean {
+  try {
+    const text = receiptText(sale) + '\n\n\n\n'; // feed paper past the cutter
+    const a = document.createElement('a');
+    a.href = 'rawbt:' + encodeURIComponent(text);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Print a rich HTML document (used for the full-width sales report table, which
  *  paginates across pages so every transaction fits). Returns false if blocked. */
 export function printHtml(title: string, bodyHtml: string): boolean {
