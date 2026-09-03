@@ -703,11 +703,13 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
 /** Top-selling products for Today / This week / This month, ranked by units
  *  sold (aggregated client-side from the period's sales, excluding refunds). */
 function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
-  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'all'>('today');
   const [rows, setRows] = useState<{ key: string; name: string; qty: number; revenue: number }[]>([]);
+  const [earliestMs, setEarliestMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const startMs = useMemo(() => {
+    if (period === 'all') return 0; // since the very first sale
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     if (period === 'week') {
@@ -726,8 +728,11 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
       .then((sales) => {
         if (cancelled) return;
         const map = new Map<string, { name: string; qty: number; revenue: number }>();
+        let earliest = Infinity;
         for (const s of sales) {
           if (s.refunded) continue;
+          const t = new Date(s.created_at).getTime();
+          if (t < earliest) earliest = t;
           for (const l of s.items) {
             const key = l.item_id != null ? 'i' + l.item_id : 'n' + l.name;
             const g = map.get(key) ?? { name: l.name, qty: 0, revenue: 0 };
@@ -741,6 +746,7 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
             .map(([key, v]) => ({ key, ...v }))
             .sort((a, b) => b.qty - a.qty || b.revenue - a.revenue),
         );
+        setEarliestMs(earliest === Infinity ? null : earliest);
       })
       .catch(() => !cancelled && setRows([]))
       .finally(() => !cancelled && setLoading(false));
@@ -752,6 +758,16 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
   const totalUnits = rows.reduce((a, r) => a + r.qty, 0);
   const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`);
   const sel = (active: boolean) => (active ? 'sel' : '');
+  const fmtD = (ms: number) =>
+    new Date(ms).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  const rangeLabel =
+    period === 'all'
+      ? earliestMs
+        ? `All time — since ${fmtD(earliestMs)}`
+        : 'All time'
+      : period === 'today'
+        ? fmtD(startMs)
+        : `${fmtD(startMs)} – ${fmtD(Date.now())}`;
 
   return (
     <>
@@ -759,16 +775,24 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
         <h3>🏆 Best sellers</h3>
       </header>
       <div className="bodyPad">
-        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, 1fr)' }}>
           <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
             📅 Today
           </button>
           <button className={sel(period === 'week')} onClick={() => setPeriod('week')}>
-            🗓 This week
+            🗓 Week
           </button>
           <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
-            📆 This month
+            📆 Month
           </button>
+          <button className={sel(period === 'all')} onClick={() => setPeriod('all')}>
+            🏅 All-time
+          </button>
+        </div>
+        <div
+          style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center', margin: '2px 0 10px' }}
+        >
+          {rangeLabel}
         </div>
         {loading ? (
           <div className="centerNote">Loading…</div>
