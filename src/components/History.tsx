@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import { printHtml, printReceipt, printThermal, receiptText, orderTypeLabel } from './Sell';
+import { printHtml, printThermal, receiptText, orderTypeLabel } from './Sell';
 import type { Branch, Employee, Sale, SaleStats, SalesPage } from '@/lib/types';
 
 interface HistoryProps {
@@ -93,21 +93,13 @@ export default function History({
             </button>
           )}
           <button
-            className="btn"
+            className="btn amber"
             onClick={() => {
               printThermal(sale);
               toast('Sent to thermal printer');
             }}
           >
-            🧾 Thermal
-          </button>
-          <button
-            className="btn amber"
-            onClick={() => {
-              if (!printReceipt(sale)) toast('Allow pop-ups to print the receipt');
-            }}
-          >
-            🖨 Print
+            🧾 Print receipt
           </button>
           <button className="btn primary" onClick={closeModal}>
             Done

@@ -8,7 +8,7 @@
 import React from 'react';
 import { api } from '@/lib/api';
 import { peso } from '@/lib/format';
-import { PaymentModal, DiscountModal, receiptText, printReceipt, printThermal } from './Sell';
+import { PaymentModal, DiscountModal, receiptText, printThermal } from './Sell';
 import type { PaymentMethod, Sale, TableSession } from '@/lib/types';
 
 export type SessionUI = {
@@ -141,21 +141,13 @@ export function openSessionReceipt(ui: SessionUI, opts: { sale: Sale; title: str
       </div>
       <footer>
         <button
-          className="btn"
+          className="btn amber"
           onClick={() => {
             printThermal(opts.sale);
             ui.toast('Sent to thermal printer');
           }}
         >
-          🧾 Thermal
-        </button>
-        <button
-          className="btn amber"
-          onClick={() => {
-            if (!printReceipt(opts.sale)) ui.toast('Allow pop-ups to print the receipt');
-          }}
-        >
-          🖨 Print
+          🧾 Print receipt
         </button>
         <button
           className="btn primary"
