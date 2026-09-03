@@ -263,6 +263,18 @@ export default function History({
     openModal(<BestSellersModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
   }
 
+  function openExport() {
+    openModal(
+      <ExportModal
+        branchId={scopedBranchId}
+        employeeId={empFilter}
+        showBranch={showBranchColumn}
+        notify={toast}
+        onClose={closeModal}
+      />,
+    );
+  }
+
   return (
     <section className="screen">
       <div className="topbar">
@@ -302,6 +314,9 @@ export default function History({
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <button className="btn" onClick={openExport}>
+          ⬇ Export
+        </button>
         <button className="btn" onClick={openBestSellers}>
           🏆 Best sellers
         </button>
@@ -835,6 +850,144 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
       <footer>
         <button className="btn" onClick={onClose}>
           Close
+        </button>
+      </footer>
+    </>
+  );
+}
+
+/** Exports the sales history for a chosen period to a real .xlsx workbook
+ *  (one row per receipt), respecting the current branch/employee filters. */
+function ExportModal({
+  branchId,
+  employeeId,
+  showBranch,
+  onClose,
+  notify,
+}: {
+  branchId?: number;
+  employeeId: string;
+  showBranch: boolean;
+  onClose: () => void;
+  notify: (m: string) => void;
+}) {
+  const isoDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = isoDate(new Date());
+  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'all' | 'range'>('month');
+  const [fromStr, setFromStr] = useState(today);
+  const [toStr, setToStr] = useState(today);
+  const [busy, setBusy] = useState(false);
+
+  const bounds = () => {
+    const now = new Date();
+    if (period === 'all') return { startMs: 0, endMs: Infinity, label: 'all-time' };
+    if (period === 'month')
+      return {
+        startMs: new Date(now.getFullYear(), now.getMonth(), 1).getTime(),
+        endMs: Infinity,
+        label: 'this-month',
+      };
+    if (period === 'week') {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return { startMs: d.getTime(), endMs: Infinity, label: 'this-week' };
+    }
+    if (period === 'range') {
+      const a = fromStr <= toStr ? fromStr : toStr;
+      const b = fromStr <= toStr ? toStr : fromStr;
+      return {
+        startMs: new Date(`${a}T00:00:00`).getTime(),
+        endMs: new Date(`${b}T00:00:00`).getTime() + 24 * 3600 * 1000,
+        label: `${a}_to_${b}`,
+      };
+    }
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    return { startMs: d.getTime(), endMs: Infinity, label: 'today' };
+  };
+
+  async function download() {
+    setBusy(true);
+    try {
+      // Load SheetJS only when actually exporting, so it stays out of the
+      // main POS bundle.
+      const XLSX = await import('xlsx');
+      const { startMs, endMs, label } = bounds();
+      const sales = (await fetchSalesInRange(startMs, employeeId || undefined, branchId))
+        .filter((s) => {
+          const t = new Date(s.created_at).getTime();
+          return t >= startMs && t < endMs;
+        })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      if (sales.length === 0) {
+        notify('No sales for this selection');
+        setBusy(false);
+        return;
+      }
+      const rows = sales.map((s) => {
+        const row: Record<string, string | number> = { 'Receipt #': s.id, 'Date & time': fmtDT(s.created_at) };
+        if (showBranch) row['Branch'] = s.branch?.name || '';
+        row['Cashier'] = s.employee?.name || s.employee_name || '';
+        row['Type'] = s.table_label ? `Table ${s.table_label}` : orderTypeLabel(s.order_type);
+        row['Customer'] = s.customer_name || '';
+        row['Items'] = s.items.reduce((a, l) => a + l.qty, 0);
+        row['Payment'] = s.payment_method === 'cash' ? 'Cash' : 'GCash';
+        row['Subtotal'] = Number(s.subtotal);
+        row['Discount'] = Number(s.discount);
+        row['Total'] = Number(s.total);
+        row['Status'] = s.refunded ? 'Refunded' : 'Paid';
+        return row;
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sales');
+      XLSX.writeFile(wb, `talabahan-sales-${label}.xlsx`);
+      onClose();
+    } catch {
+      notify('Could not export the file');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sel = (active: boolean) => (active ? 'sel' : '');
+  return (
+    <>
+      <header>
+        <h3>⬇ Export to Excel</h3>
+      </header>
+      <div className="bodyPad">
+        <p style={{ color: 'var(--muted)', marginTop: 0, fontSize: 14 }}>
+          Downloads an Excel (.xlsx) file with one row per receipt for the selected period.
+        </p>
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>Today</button>
+          <button className={sel(period === 'week')} onClick={() => setPeriod('week')}>Week</button>
+          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>Month</button>
+          <button className={sel(period === 'all')} onClick={() => setPeriod('all')}>All</button>
+          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>Range</button>
+        </div>
+        {period === 'range' && (
+          <div className="fieldRow" style={{ margin: '10px 0 0' }}>
+            <div className="field">
+              <label>From</label>
+              <input type="date" value={fromStr} max={today} onChange={(e) => e.target.value && setFromStr(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>To</label>
+              <input type="date" value={toStr} min={fromStr} max={today} onChange={(e) => e.target.value && setToStr(e.target.value)} />
+            </div>
+          </div>
+        )}
+      </div>
+      <footer>
+        <button className="btn" disabled={busy} onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn primary" disabled={busy} onClick={download}>
+          {busy ? 'Preparing…' : '⬇ Download Excel'}
         </button>
       </footer>
     </>
