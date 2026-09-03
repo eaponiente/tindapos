@@ -259,6 +259,8 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .previewWrap table{box-shadow:none; border-radius:0;}
 .previewWrap th,.previewWrap td{padding:8px 10px; font-size:13px; white-space:nowrap;}
 .previewWrap tr.rfd td{color:var(--danger); text-decoration:line-through;}
+.previewWrap tr.topSeller td{background:var(--gold-tint);}
+.previewWrap tr.topSeller td b{color:var(--gold-dark);}
 
 /* Mobile navigation menu (opened by the ☰ button in the bottom bar) */
 .navMenu{display:flex; flex-direction:column; gap:6px;}
