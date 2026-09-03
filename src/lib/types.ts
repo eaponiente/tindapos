@@ -199,6 +199,7 @@ export interface OrderTicket {
   customer_phone: string | null;
   customer_address: string | null;
   customer_landmark: string | null;
+  reserved_at: string | null; // scheduled pickup / ready / delivery time
   opened_at: string;
   total: number;
   item_count: number;
