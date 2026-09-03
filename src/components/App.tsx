@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, type ComponentType } from 'react';
+import React, { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { api } from '@/lib/api';
 import { roleRank } from '@/lib/format';
 import type { Branch, Category, Employee, Item } from '@/lib/types';
@@ -43,6 +43,8 @@ const SESSION_KEY = 'tindapos:session';
 const SCREEN_KEY = 'tindapos:screen';
 // Remembers the owner's last-selected branch across refreshes.
 const BRANCH_KEY = 'tindapos:branch';
+// Auto-logout the cashier after this long with no interaction.
+const IDLE_LOGOUT_MS = 5 * 60 * 1000;
 
 // Owners resume on their last-used branch; everyone else is locked to their
 // assigned branch.
@@ -65,7 +67,7 @@ const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] 
 ];
 
 function AppShell() {
-  const { openModal, closeModal } = useUI();
+  const { openModal, closeModal, toast } = useUI();
   const [session, setSession] = useState<Employee | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [screen, setScreen] = useState<Screen>('service');
@@ -201,6 +203,32 @@ function AppShell() {
     setSession(null);
     setActiveBranchId(null);
   }
+
+  // Auto-logout after 5 minutes with no interaction. Uses a ref so the always-
+  // current handleLock is called without re-subscribing listeners each render.
+  const lockRef = useRef(handleLock);
+  useEffect(() => {
+    lockRef.current = handleLock;
+  });
+  useEffect(() => {
+    if (!session) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        toast('Logged out after 5 minutes of inactivity');
+        lockRef.current();
+      }, IDLE_LOGOUT_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'click', 'touchstart', 'mousemove', 'scroll', 'wheel'];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   function switchBranchModal() {
     openModal(
