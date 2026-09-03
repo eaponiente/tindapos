@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
@@ -258,6 +258,10 @@ export default function History({
     openModal(<PreviewModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
   }
 
+  function openBestSellers() {
+    openModal(<BestSellersModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
+  }
+
   return (
     <section className="screen">
       <div className="topbar">
@@ -297,6 +301,9 @@ export default function History({
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <button className="btn" onClick={openBestSellers}>
+          🏆 Best sellers
+        </button>
         <button className="btn" onClick={openPreview}>
           👁 Preview
         </button>
@@ -682,6 +689,122 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
               <span>{peso(total)}</span>
             </div>
           </>
+        )}
+      </div>
+      <footer>
+        <button className="btn" onClick={onClose}>
+          Close
+        </button>
+      </footer>
+    </>
+  );
+}
+
+/** Top-selling products for Today / This week / This month, ranked by units
+ *  sold (aggregated client-side from the period's sales, excluding refunds). */
+function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [rows, setRows] = useState<{ key: string; name: string; qty: number; revenue: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const startMs = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (period === 'week') {
+      const mondayOffset = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
+      d.setDate(d.getDate() - mondayOffset);
+    } else if (period === 'month') {
+      d.setDate(1);
+    }
+    return d.getTime();
+  }, [period]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchSalesInRange(startMs, undefined, branchId)
+      .then((sales) => {
+        if (cancelled) return;
+        const map = new Map<string, { name: string; qty: number; revenue: number }>();
+        for (const s of sales) {
+          if (s.refunded) continue;
+          for (const l of s.items) {
+            const key = l.item_id != null ? 'i' + l.item_id : 'n' + l.name;
+            const g = map.get(key) ?? { name: l.name, qty: 0, revenue: 0 };
+            g.qty += l.qty;
+            g.revenue += Number(l.price) * l.qty;
+            map.set(key, g);
+          }
+        }
+        setRows(
+          [...map.entries()]
+            .map(([key, v]) => ({ key, ...v }))
+            .sort((a, b) => b.qty - a.qty || b.revenue - a.revenue),
+        );
+      })
+      .catch(() => !cancelled && setRows([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [startMs, branchId]);
+
+  const totalUnits = rows.reduce((a, r) => a + r.qty, 0);
+  const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`);
+  const sel = (active: boolean) => (active ? 'sel' : '');
+
+  return (
+    <>
+      <header>
+        <h3>🏆 Best sellers</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr' }}>
+          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
+            📅 Today
+          </button>
+          <button className={sel(period === 'week')} onClick={() => setPeriod('week')}>
+            🗓 This week
+          </button>
+          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
+            📆 This month
+          </button>
+        </div>
+        {loading ? (
+          <div className="centerNote">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="centerNote">No sales in this period yet.</div>
+        ) : (
+          <div className="previewWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 52 }}>Rank</th>
+                  <th>Product</th>
+                  <th className="num">Qty sold</th>
+                  <th className="num">Sales</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.key} className={i < 3 ? 'topSeller' : ''}>
+                    <td style={{ fontSize: 16 }}>{medal(i)}</td>
+                    <td>{r.name}</td>
+                    <td className="num">
+                      <b>{r.qty}</b>
+                    </td>
+                    <td className="num">{peso(r.revenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && rows.length > 0 && (
+          <div className="totRow grand" style={{ marginTop: 10 }}>
+            <span>Total items sold</span>
+            <span>{totalUnits}</span>
+          </div>
         )}
       </div>
       <footer>
