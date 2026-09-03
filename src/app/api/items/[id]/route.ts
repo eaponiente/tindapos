@@ -35,6 +35,18 @@ export const PUT = handler(async (request: NextRequest, { params }: Ctx) => {
 export const DELETE = handler(async (_request: NextRequest, { params }: Ctx) => {
   const { id } = await params;
 
+  // Guard: don't delete an item that's sitting on an open table or order —
+  // it would silently drop from the bill (and skip stock) at Pay Bill.
+  const { data: openLines } = await db()
+    .from('table_session_items')
+    .select('id, session:table_sessions!inner(status)')
+    .eq('item_id', id)
+    .in('session.status', ['open', 'for_payment'])
+    .limit(1);
+  if (openLines && openLines.length > 0) {
+    return fail('This item is on an open table or order. Settle or cancel it first, then delete.', 409);
+  }
+
   const { data: item } = await db().from('items').select('image').eq('id', id).maybeSingle();
   if (item?.image) {
     await db().storage.from(IMAGE_BUCKET).remove([item.image]);
