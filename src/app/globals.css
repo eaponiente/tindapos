@@ -405,8 +405,12 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 /* Session panel */
 .tblPax{font-size:14px; font-weight:700; color:var(--ink); background:var(--gold-tint); padding:4px 10px; border-radius:999px;}
 .tblSessionNo{font-size:13px; color:var(--muted);}
-.sessionWrap{flex:1; display:flex; gap:16px; overflow:hidden; padding:8px 20px 20px;}
-.sessionOrder{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;}
+.sessionWrap{flex:1; min-height:0; display:flex; gap:16px; overflow:hidden; padding:8px 20px 20px;}
+.sessionOrder{flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  display:flex; flex-direction:column; gap:12px;}
+/* Keep each round block at its natural height so the list actually scrolls
+   instead of the blocks shrinking and clipping their lines (the >15-items bug). */
+.sessionOrder > *{flex:0 0 auto;}
 .roundBlock{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
 .roundHead{display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:var(--paper);
   font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);}
@@ -496,8 +500,11 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   .tableCard{min-height:104px; padding:12px;}
   .tcNum{font-size:16px;} .tcTotal{font-size:19px;}
   .floorLegend{display:none;}
-  /* Session panel stacks: order on top, actions below */
-  .sessionWrap{flex-direction:column; padding:8px 12px 90px; overflow-y:auto;}
+  /* Session panel stacks: the whole panel is one touch-scroll area, so the
+     order list (even 30+ items) and the actions below all reach by dragging.
+     The order list itself is not a nested scroller here — it flows normally. */
+  .sessionWrap{flex-direction:column; padding:8px 12px 90px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  .sessionOrder{flex:none; min-height:0; overflow:visible;}
   .sessionSide{width:auto;}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}
