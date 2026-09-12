@@ -256,7 +256,9 @@ export default function History({
   }
 
   function openPreview() {
-    openModal(<PreviewModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
+    openModal(<PreviewModal branchId={scopedBranchId} isOwner={isOwner} onClose={closeModal} />, {
+      wide: true,
+    });
   }
 
   function openBestSellers() {
@@ -547,10 +549,29 @@ function buildReportHtml(title: string, periodLabel: string, sales: Sale[], scop
 
 /** Read-only on-screen version of the printed report: the same transaction
  *  table, filterable by period and payment method. */
-function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
+function PreviewModal({
+  branchId,
+  isOwner,
+  onClose,
+}: {
+  branchId?: number;
+  isOwner: boolean;
+  onClose: () => void;
+}) {
   const isoDate = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const today = isoDate(new Date());
+  // Non-owners can only look back a limited window: the last 5 days (today plus
+  // the previous 4). Owners see the entire history.
+  const PREVIEW_DAYS = 5;
+  const floorDate = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (PREVIEW_DAYS - 1));
+    return d;
+  };
+  const floorMs = isOwner ? -Infinity : floorDate().getTime();
+  const minStr = isOwner ? undefined : isoDate(floorDate());
   const [period, setPeriod] = useState<'today' | 'month' | 'range'>('today');
   const [fromStr, setFromStr] = useState(today);
   const [toStr, setToStr] = useState(today);
@@ -559,22 +580,27 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
   const [loading, setLoading] = useState(true);
 
   // Start/end of the selected window. Sales are fetched from startMs; endMs
-  // only bounds a custom From–To range.
+  // only bounds a custom From–To range. For non-owners startMs never reaches
+  // further back than the 5-day floor, whatever period/range they pick.
   const bounds = () => {
     const now = new Date();
-    if (period === 'month')
-      return { startMs: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), endMs: Infinity };
-    if (period === 'range') {
+    let startMs: number;
+    let endMs = Infinity;
+    if (period === 'month') {
+      // For non-owners this button is the "Last 5 days" window.
+      startMs = isOwner ? new Date(now.getFullYear(), now.getMonth(), 1).getTime() : floorMs;
+    } else if (period === 'range') {
       const a = fromStr <= toStr ? fromStr : toStr; // tolerate reversed picks
       const b = fromStr <= toStr ? toStr : fromStr;
-      return {
-        startMs: new Date(`${a}T00:00:00`).getTime(),
-        endMs: new Date(`${b}T00:00:00`).getTime() + 24 * 3600 * 1000,
-      };
+      startMs = new Date(`${a}T00:00:00`).getTime();
+      endMs = new Date(`${b}T00:00:00`).getTime() + 24 * 3600 * 1000;
+    } else {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      startMs = d.getTime();
     }
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    return { startMs: d.getTime(), endMs: Infinity };
+    if (!isOwner) startMs = Math.max(startMs, floorMs);
+    return { startMs, endMs };
   };
 
   useEffect(() => {
@@ -617,12 +643,17 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
             📅 Today
           </button>
           <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
-            🗓 Month
+            {isOwner ? '🗓 Month' : '🗓 Last 5 days'}
           </button>
           <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
             📆 Date range
           </button>
         </div>
+        {!isOwner && (
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '8px 2px 0' }}>
+            Preview is limited to the last {PREVIEW_DAYS} days. Ask the owner for older sales.
+          </div>
+        )}
         {period === 'range' && (
           <div className="fieldRow" style={{ margin: '10px 0 0' }}>
             <div className="field">
@@ -630,6 +661,7 @@ function PreviewModal({ branchId, onClose }: { branchId?: number; onClose: () =>
               <input
                 type="date"
                 value={fromStr}
+                min={minStr}
                 max={today}
                 onChange={(e) => e.target.value && setFromStr(e.target.value)}
               />
