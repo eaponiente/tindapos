@@ -756,23 +756,47 @@ function PreviewModal({
 /** Top-selling products for Today / This week / This month, ranked by units
  *  sold (aggregated client-side from the period's sales, excluding refunds). */
 function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
-  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'all'>('today');
+  const isoDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = isoDate(new Date());
+  const [period, setPeriod] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'range'>(
+    'today',
+  );
+  const [fromStr, setFromStr] = useState(today);
+  const [toStr, setToStr] = useState(today);
   const [rows, setRows] = useState<{ key: string; name: string; qty: number; revenue: number }[]>([]);
   const [earliestMs, setEarliestMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const startMs = useMemo(() => {
-    if (period === 'all') return 0; // since the very first sale
+  // Best sellers can look at a bounded window now (Yesterday, or a custom
+  // From–To range), so we track both a start and an end.
+  const { startMs, endMs } = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
-    if (period === 'week') {
-      const mondayOffset = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
-      d.setDate(d.getDate() - mondayOffset);
-    } else if (period === 'month') {
-      d.setDate(1);
+    const todayMs = d.getTime();
+    const DAY = 24 * 3600 * 1000;
+    if (period === 'all') return { startMs: 0, endMs: Infinity };
+    if (period === 'yesterday') return { startMs: todayMs - DAY, endMs: todayMs };
+    if (period === 'range') {
+      const a = fromStr <= toStr ? fromStr : toStr; // tolerate reversed picks
+      const b = fromStr <= toStr ? toStr : fromStr;
+      return {
+        startMs: new Date(`${a}T00:00:00`).getTime(),
+        endMs: new Date(`${b}T00:00:00`).getTime() + DAY,
+      };
     }
-    return d.getTime();
-  }, [period]);
+    if (period === 'week') {
+      const wd = new Date(todayMs);
+      wd.setDate(wd.getDate() - ((wd.getDay() + 6) % 7)); // back to Monday
+      return { startMs: wd.getTime(), endMs: Infinity };
+    }
+    if (period === 'month') {
+      const md = new Date(todayMs);
+      md.setDate(1);
+      return { startMs: md.getTime(), endMs: Infinity };
+    }
+    return { startMs: todayMs, endMs: Infinity }; // today
+  }, [period, fromStr, toStr]);
 
   useEffect(() => {
     let cancelled = false;
@@ -785,6 +809,7 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
         for (const s of sales) {
           if (s.refunded) continue;
           const t = new Date(s.created_at).getTime();
+          if (t < startMs || t >= endMs) continue; // stay inside the window
           if (t < earliest) earliest = t;
           for (const l of s.items) {
             const key = l.item_id != null ? 'i' + l.item_id : 'n' + l.name;
@@ -806,21 +831,22 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
     return () => {
       cancelled = true;
     };
-  }, [startMs, branchId]);
+  }, [startMs, endMs, branchId]);
 
   const totalUnits = rows.reduce((a, r) => a + r.qty, 0);
   const medal = (i: number) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`);
   const sel = (active: boolean) => (active ? 'sel' : '');
   const fmtD = (ms: number) =>
     new Date(ms).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  const endDisplayMs = endMs === Infinity ? Date.now() : endMs - 24 * 3600 * 1000;
   const rangeLabel =
     period === 'all'
       ? earliestMs
         ? `All time — since ${fmtD(earliestMs)}`
         : 'All time'
-      : period === 'today'
+      : period === 'today' || period === 'yesterday'
         ? fmtD(startMs)
-        : `${fmtD(startMs)} – ${fmtD(Date.now())}`;
+        : `${fmtD(startMs)} – ${fmtD(endDisplayMs)}`;
 
   return (
     <>
@@ -828,9 +854,12 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
         <h3>🏆 Best sellers</h3>
       </header>
       <div className="bodyPad">
-        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
             📅 Today
+          </button>
+          <button className={sel(period === 'yesterday')} onClick={() => setPeriod('yesterday')}>
+            🌙 Yesterday
           </button>
           <button className={sel(period === 'week')} onClick={() => setPeriod('week')}>
             🗓 Week
@@ -841,9 +870,35 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
           <button className={sel(period === 'all')} onClick={() => setPeriod('all')}>
             🏅 All-time
           </button>
+          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
+            📆 Date range
+          </button>
         </div>
+        {period === 'range' && (
+          <div className="fieldRow" style={{ margin: '10px 0 0' }}>
+            <div className="field">
+              <label>From</label>
+              <input
+                type="date"
+                value={fromStr}
+                max={today}
+                onChange={(e) => e.target.value && setFromStr(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>To</label>
+              <input
+                type="date"
+                value={toStr}
+                min={fromStr}
+                max={today}
+                onChange={(e) => e.target.value && setToStr(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
         <div
-          style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center', margin: '2px 0 10px' }}
+          style={{ fontSize: 12.5, color: 'var(--muted)', textAlign: 'center', margin: '8px 0 10px' }}
         >
           {rangeLabel}
         </div>
