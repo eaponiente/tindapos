@@ -525,6 +525,11 @@ export default function Service({
   }
 
   // ── Landing: tables on top, open orders below ─────────────────────────────
+  // Employee credit tabs are kept out of the food-order list and shown in their
+  // own "who owes" section.
+  const foodOrders = tickets.filter((t) => t.service_type !== 'employee');
+  const empTabs = tickets.filter((t) => t.service_type === 'employee');
+  const owed = empTabs.reduce((a, t) => a + t.total, 0);
   return (
     <section className="screen">
       <div className="topbar">
@@ -596,17 +601,17 @@ export default function Service({
 
           <div className="svcOrdersHead">
             <h3>Open orders</h3>
-            <span className="svcOrdersCount">{tickets.length}</span>
+            <span className="svcOrdersCount">{foodOrders.length}</span>
             <div className="grow"></div>
             <button className="btn primary" onClick={newOrder}>
               ＋ New order
             </button>
           </div>
-          {tickets.length === 0 ? (
+          {foodOrders.length === 0 ? (
             <div className="svcOrdersEmpty">No open take-out, delivery, or pick-up orders.</div>
           ) : (
             <div className="orderGrid">
-              {tickets.map((t) => (
+              {foodOrders.map((t) => (
                 <button key={t.id} className={'orderCard ' + t.service_type} onClick={() => openPanel(t.id)}>
                   <div className="ocTop">
                     <span className="ocType">
@@ -626,6 +631,33 @@ export default function Service({
                 </button>
               ))}
             </div>
+          )}
+
+          {empTabs.length > 0 && (
+            <>
+              <div className="svcOrdersHead">
+                <h3>👤 Employee tabs</h3>
+                <span className="svcOrdersCount">{empTabs.length}</span>
+                <div className="grow"></div>
+                <span className="empOwed">Unpaid: {peso(owed)}</span>
+              </div>
+              <div className="orderGrid">
+                {empTabs.map((t) => (
+                  <button key={t.id} className="orderCard employee" onClick={() => openPanel(t.id)}>
+                    <div className="ocTop">
+                      <span className="ocType">👤 Employee</span>
+                      <span className="ocNo">#{t.id}</span>
+                    </div>
+                    <div className="ocName">{t.customer_name || 'Employee'}</div>
+                    <div className="ocTime">🕒 since {fmtDT(t.opened_at)}</div>
+                    <div className="ocFoot">
+                      <span className="ocTotal">{peso(t.total)}</span>
+                      <span className="ocItems">{t.item_count} items</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

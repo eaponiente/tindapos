@@ -475,6 +475,8 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .orderCard.delivery{border-left-color:#2F6DD0;}
 .orderCard.pick_up{border-left-color:#8A5CD0;}
 .orderCard.take_out{border-left-color:var(--amber);}
+.orderCard.employee{border-left-color:var(--ink); background:linear-gradient(180deg,#FBFAF6,#fff);}
+.empOwed{font-size:14px; font-weight:800; color:var(--danger); background:rgba(196,72,59,.1); padding:4px 12px; border-radius:999px;}
 .ocTop{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted); font-weight:700;}
 .ocType{text-transform:uppercase; letter-spacing:.03em;}
 .ocName{font-size:18px; font-weight:800; letter-spacing:-.02em;}
