@@ -48,8 +48,8 @@ export const POST = handler(async (request: NextRequest) => {
   const body = await request.json();
   if (!body.branch_id) return fail('A branch is required');
   if (!body.employee_id) return fail('employee_id is required');
-  if (!['take_out', 'delivery', 'pick_up'].includes(body.service_type)) {
-    return fail('Choose take-out, delivery, or pick-up');
+  if (!['take_out', 'delivery', 'pick_up', 'employee'].includes(body.service_type)) {
+    return fail('Choose take-out, delivery, pick-up, or employee');
   }
 
   const { data: sessionId, error } = await db().rpc('open_order_session', {

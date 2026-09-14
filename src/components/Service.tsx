@@ -21,6 +21,7 @@ interface ServiceProps {
   branchId: number | null;
   items: Item[];
   categories: Category[];
+  employees: Employee[];
   reloadItems: () => Promise<void>;
   isOwner: boolean;
 }
@@ -35,6 +36,7 @@ const TYPE_EMOJI: Record<ServiceType, string> = {
   take_out: '🥡',
   delivery: '🛵',
   pick_up: '🛍',
+  employee: '👤',
 };
 
 function fmtTime(iso: string | null): string {
@@ -56,7 +58,15 @@ function sessionTitle(s: TableSession): string {
   return s.customer_name ? `${t} — ${s.customer_name}` : t;
 }
 
-export default function Service({ employee, branchId, items, categories, reloadItems, isOwner }: ServiceProps) {
+export default function Service({
+  employee,
+  branchId,
+  items,
+  categories,
+  employees,
+  reloadItems,
+  isOwner,
+}: ServiceProps) {
   const { toast, openModal, closeModal } = useUI();
   const ui = { openModal, closeModal, toast };
   const [floor, setFloor] = useState<FloorTable[]>([]);
@@ -186,6 +196,7 @@ export default function Service({ employee, branchId, items, categories, reloadI
   function newOrder() {
     openModal(
       <NewOrderModal
+        employees={employees}
         onCancel={closeModal}
         onConfirm={async (data) => {
           try {
@@ -755,9 +766,11 @@ function ReservationModal({
 }
 
 function NewOrderModal({
+  employees,
   onConfirm,
   onCancel,
 }: {
+  employees: Employee[];
   onConfirm: (data: {
     service_type: ServiceType;
     customer_name?: string;
@@ -777,15 +790,18 @@ function NewOrderModal({
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [time, setTime] = useState(defTime);
+  const [empId, setEmpId] = useState(''); // for employee purchases
   const showAddress = type === 'delivery';
+  const isEmployee = type === 'employee';
   const timeLabel = type === 'pick_up' ? 'Pickup time' : type === 'delivery' ? 'Deliver by' : 'Ready by';
+  const emp = employees.find((e) => String(e.id) === empId);
   return (
     <>
       <header>
         <h3>New order</h3>
       </header>
       <div className="bodyPad">
-        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr' }}>
           <button className={type === 'take_out' ? 'sel' : ''} onClick={() => setType('take_out')}>
             🥡 Take-out
           </button>
@@ -795,31 +811,55 @@ function NewOrderModal({
           <button className={type === 'pick_up' ? 'sel' : ''} onClick={() => setType('pick_up')}>
             🛍 Pick-up
           </button>
+          <button className={isEmployee ? 'sel' : ''} onClick={() => setType('employee')}>
+            👤 Employee
+          </button>
         </div>
-        <div className="field">
-          <label>Customer name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan D." autoFocus />
-        </div>
-        <div className="field">
-          <label>Phone number</label>
-          <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 0917…" />
-        </div>
-        {showAddress && (
+        {isEmployee ? (
           <>
             <div className="field">
-              <label>Delivery address</label>
-              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House #, street, brgy" />
+              <label>Which employee?</label>
+              <select value={empId} autoFocus onChange={(e) => setEmpId(e.target.value)}>
+                <option value="">Select employee…</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p style={{ color: 'var(--muted)', fontSize: 13, margin: '2px 2px 0' }}>
+              Add the items, apply a discount, then Pay bill — or leave it open to settle later.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label>Customer name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Juan D." autoFocus />
             </div>
             <div className="field">
-              <label>Landmark</label>
-              <input value={landmark} onChange={(e) => setLandmark(e.target.value)} placeholder="Near…" />
+              <label>Phone number</label>
+              <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 0917…" />
+            </div>
+            {showAddress && (
+              <>
+                <div className="field">
+                  <label>Delivery address</label>
+                  <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House #, street, brgy" />
+                </div>
+                <div className="field">
+                  <label>Landmark</label>
+                  <input value={landmark} onChange={(e) => setLandmark(e.target.value)} placeholder="Near…" />
+                </div>
+              </>
+            )}
+            <div className="field">
+              <label>{timeLabel}</label>
+              <input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           </>
         )}
-        <div className="field">
-          <label>{timeLabel}</label>
-          <input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} />
-        </div>
       </div>
       <footer>
         <button className="btn" onClick={onCancel}>
@@ -827,18 +867,21 @@ function NewOrderModal({
         </button>
         <button
           className="btn primary"
+          disabled={isEmployee && !emp}
           onClick={() =>
-            onConfirm({
-              service_type: type,
-              customer_name: name.trim() || undefined,
-              customer_phone: phone.trim() || undefined,
-              customer_address: address.trim() || undefined,
-              customer_landmark: landmark.trim() || undefined,
-              reserved_at: time ? new Date(time).toISOString() : undefined,
-            })
+            isEmployee
+              ? onConfirm({ service_type: 'employee', customer_name: emp?.name })
+              : onConfirm({
+                  service_type: type,
+                  customer_name: name.trim() || undefined,
+                  customer_phone: phone.trim() || undefined,
+                  customer_address: address.trim() || undefined,
+                  customer_landmark: landmark.trim() || undefined,
+                  reserved_at: time ? new Date(time).toISOString() : undefined,
+                })
           }
         >
-          Start order
+          {isEmployee ? 'Start purchase' : 'Start order'}
         </button>
       </footer>
     </>

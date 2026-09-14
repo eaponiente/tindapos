@@ -586,6 +586,8 @@ export function orderTypeLabel(type?: string | null): string {
       return 'Delivery';
     case 'pick_up':
       return 'Pick-up';
+    case 'employee':
+      return 'Employee';
     default:
       return 'Counter';
   }

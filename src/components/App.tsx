@@ -390,6 +390,7 @@ function AppShell() {
             branchId={activeBranchId}
             items={items}
             categories={categories}
+            employees={employees}
             reloadItems={reloadItems}
             isOwner={isOwner}
           />

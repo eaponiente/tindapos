@@ -163,7 +163,7 @@ export interface TableSessionItem {
   created_at: string;
 }
 
-export type ServiceType = 'dine_in' | 'take_out' | 'delivery' | 'pick_up';
+export type ServiceType = 'dine_in' | 'take_out' | 'delivery' | 'pick_up' | 'employee';
 
 /** Full detail of one session — a dine-in table tab OR a take-out/delivery/
  *  pick-up order ticket (no table, with a customer record). */
