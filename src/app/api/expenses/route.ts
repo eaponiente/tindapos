@@ -28,19 +28,26 @@ export const POST = handler(async (request: NextRequest) => {
   const amount = Number(body.amount);
   if (!(amount > 0)) return fail('Enter an amount greater than zero');
 
-  const { data, error } = await db()
+  const base = {
+    branch_id: body.branch_id,
+    category: String(body.category),
+    amount,
+    note: body.note?.trim() || null,
+    spent_at: body.spent_at || new Date().toISOString().slice(0, 10),
+    recorded_by: body.employee_id ?? null,
+    recorded_by_name: body.employee_name ?? null,
+  };
+  const payment = body.payment_method === 'gcash' ? 'gcash' : 'cash';
+
+  let { data, error } = await db()
     .from('expenses')
-    .insert({
-      branch_id: body.branch_id,
-      category: String(body.category),
-      amount,
-      note: body.note?.trim() || null,
-      spent_at: body.spent_at || new Date().toISOString().slice(0, 10),
-      recorded_by: body.employee_id ?? null,
-      recorded_by_name: body.employee_name ?? null,
-    })
+    .insert({ ...base, payment_method: payment })
     .select('*')
     .single();
+  // Graceful fallback if the payment_method column isn't migrated yet.
+  if (error && /payment_method/i.test(error.message)) {
+    ({ data, error } = await db().from('expenses').insert(base).select('*').single());
+  }
   if (error) return fail(error.message);
   return NextResponse.json(data, { status: 201 });
 });

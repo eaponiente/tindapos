@@ -232,6 +232,7 @@ export const api = {
     branch_id: number;
     category: string;
     amount: number;
+    payment_method: string;
     note?: string;
     spent_at?: string;
     employee_id: number;

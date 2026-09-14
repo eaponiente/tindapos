@@ -197,6 +197,7 @@ export interface Expense {
   branch_id: number;
   category: string; // one of ExpenseCategory (free text for future categories)
   amount: number;
+  payment_method?: string; // 'cash' | 'gcash' (may be absent on pre-migration rows)
   note: string | null;
   spent_at: string; // YYYY-MM-DD
   recorded_by: number | null;
