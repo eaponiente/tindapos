@@ -59,6 +59,15 @@ export const ActivityIcon = () => (
   </svg>
 );
 
+export const ExpensesIcon = () => (
+  <svg {...base} aria-hidden>
+    <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h11A2.5 2.5 0 0 1 19 7.5V8" />
+    <rect x="3" y="8" width="18" height="12" rx="2.5" />
+    <path d="M16 13.5h.01" />
+    <path d="M7 12.5c0 1.4 4 1.2 4 3 0 1-1 1.5-2 1.5s-2-.5-2-1.3M9 10.5v.8M9 17v.8" />
+  </svg>
+);
+
 export const TablesIcon = () => (
   <svg {...base} aria-hidden>
     <circle cx="10.5" cy="12" r="6.5" />

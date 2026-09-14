@@ -6,9 +6,11 @@ import type {
   Branch,
   Category,
   Employee,
+  Expense,
   FloorTable,
   Item,
   ItemStats,
+  NetIncome,
   PaymentMethod,
   OrderTicket,
   Sale,
@@ -216,4 +218,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ table_ids, employee_id }),
     }),
+
+  // ── Expenses & net income ────────────────────────────────────────────────
+  expenses: (branchId: number | null | undefined, from?: string, to?: string) => {
+    const parts = [
+      branchId ? `branch_id=${branchId}` : '',
+      from ? `from=${from}` : '',
+      to ? `to=${to}` : '',
+    ].filter(Boolean);
+    return request<Expense[]>('/expenses' + (parts.length ? `?${parts.join('&')}` : ''));
+  },
+  createExpense: (data: {
+    branch_id: number;
+    category: string;
+    amount: number;
+    note?: string;
+    spent_at?: string;
+    employee_id: number;
+    employee_name: string;
+  }) => request<Expense>('/expenses', { method: 'POST', body: JSON.stringify(data) }),
+  deleteExpense: (id: number) => request<{ ok: true }>(`/expenses/${id}`, { method: 'DELETE' }),
+  netIncome: (branchId: number | null | undefined, from: string, to: string) => {
+    const b = branchId ? `branch_id=${branchId}&` : '';
+    return request<NetIncome>(`/expenses/net-income?${b}from=${from}&to=${to}`);
+  },
 };

@@ -189,6 +189,30 @@ export interface TableSession {
   total: number;
 }
 
+// ── Expenses & net income ───────────────────────────────────────────────────
+export type ExpenseCategory = 'salary' | 'market' | 'softdrinks' | 'ice_blocks' | 'other';
+
+export interface Expense {
+  id: number;
+  branch_id: number;
+  category: string; // one of ExpenseCategory (free text for future categories)
+  amount: number;
+  note: string | null;
+  spent_at: string; // YYYY-MM-DD
+  recorded_by: number | null;
+  recorded_by_name: string | null;
+  created_at: string;
+}
+
+/** Sales-vs-expenses summary for a period (from the net_income RPC). */
+export interface NetIncome {
+  sales_total: number;
+  sales_count: number;
+  refunds_total: number;
+  expenses_total: number;
+  by_category: Record<string, number>;
+}
+
 /** One open non-dine-in order in the Orders list. */
 export interface OrderTicket {
   id: number;

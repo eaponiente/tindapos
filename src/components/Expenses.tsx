@@ -1,0 +1,325 @@
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { peso } from '@/lib/format';
+import { useUI } from './UI';
+import type { Employee, Expense, ExpenseCategory, NetIncome } from '@/lib/types';
+
+interface ExpensesProps {
+  employee: Employee;
+  branchId: number | null;
+}
+
+const CATS: { key: ExpenseCategory; label: string; emoji: string }[] = [
+  { key: 'salary', label: 'Salary', emoji: '💵' },
+  { key: 'market', label: 'Market / Ingredients', emoji: '🧺' },
+  { key: 'softdrinks', label: 'Softdrinks', emoji: '🥤' },
+  { key: 'ice_blocks', label: 'Ice blocks', emoji: '🧊' },
+  { key: 'other', label: 'Other expenses', emoji: '🧾' },
+];
+const catLabel = (k: string) => CATS.find((c) => c.key === k)?.label ?? k;
+const catEmoji = (k: string) => CATS.find((c) => c.key === k)?.emoji ?? '🧾';
+
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const prettyDate = (s: string) => {
+  try {
+    return new Date(`${s}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return s;
+  }
+};
+
+export default function Expenses({ employee, branchId }: ExpensesProps) {
+  const { toast, openModal, closeModal } = useUI();
+  const today = isoDate(new Date());
+  const [period, setPeriod] = useState<'today' | 'month' | 'range'>('month');
+  const [fromStr, setFromStr] = useState(today);
+  const [toStr, setToStr] = useState(today);
+  const [net, setNet] = useState<NetIncome | null>(null);
+  const [list, setList] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const range = useCallback((): { from: string; to: string } => {
+    const now = new Date();
+    if (period === 'month') return { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
+    if (period === 'range') {
+      const a = fromStr <= toStr ? fromStr : toStr;
+      const b = fromStr <= toStr ? toStr : fromStr;
+      return { from: a, to: b };
+    }
+    return { from: today, to: today };
+  }, [period, fromStr, toStr, today]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { from, to } = range();
+      const [n, xs] = await Promise.all([
+        api.netIncome(branchId, from, to),
+        api.expenses(branchId, from, to),
+      ]);
+      setNet(n);
+      setList(xs);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not load expenses');
+    } finally {
+      setLoading(false);
+    }
+  }, [range, branchId, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function addExpense() {
+    openModal(
+      <ExpenseModal
+        defaultDate={today}
+        onCancel={closeModal}
+        onSave={async (data) => {
+          try {
+            await api.createExpense({
+              branch_id: branchId!,
+              employee_id: employee.id,
+              employee_name: employee.name,
+              ...data,
+            });
+            closeModal();
+            toast('Expense recorded');
+            load();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not save the expense');
+          }
+        }}
+      />,
+    );
+  }
+
+  function removeExpense(x: Expense) {
+    openModal(
+      <>
+        <header>
+          <h3>Delete expense?</h3>
+        </header>
+        <div className="bodyPad">
+          <p style={{ margin: 0 }}>
+            Remove <b>{catLabel(x.category)}</b> — <b>{peso(x.amount)}</b>
+            {x.note ? ` (${x.note})` : ''} on {prettyDate(x.spent_at)}? This can&apos;t be undone.
+          </p>
+        </div>
+        <footer>
+          <button className="btn" onClick={closeModal}>
+            Cancel
+          </button>
+          <button
+            className="btn danger"
+            onClick={async () => {
+              try {
+                await api.deleteExpense(x.id);
+                closeModal();
+                toast('Expense deleted');
+                load();
+              } catch (e) {
+                toast(e instanceof Error ? e.message : 'Could not delete');
+              }
+            }}
+          >
+            Delete
+          </button>
+        </footer>
+      </>,
+    );
+  }
+
+  const salesTotal = Number(net?.sales_total ?? 0);
+  const expensesTotal = Number(net?.expenses_total ?? 0);
+  const netIncome = salesTotal - expensesTotal;
+  const sel = (active: boolean) => (active ? 'sel' : '');
+  // Category rows: the five known ones first (even if zero), then any extras.
+  const byCat = net?.by_category ?? {};
+  const extraCats = Object.keys(byCat).filter((k) => !CATS.some((c) => c.key === k));
+
+  return (
+    <section className="screen">
+      <div className="topbar">
+        <h2>Expenses</h2>
+        <div className="grow"></div>
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr', maxWidth: 300 }}>
+          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
+            Today
+          </button>
+          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
+            Month
+          </button>
+          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
+            Range
+          </button>
+        </div>
+        <button className="btn primary" onClick={addExpense}>
+          ＋ Add expense
+        </button>
+      </div>
+
+      {period === 'range' && (
+        <div className="fieldRow" style={{ padding: '0 20px' }}>
+          <div className="field">
+            <label>From</label>
+            <input type="date" value={fromStr} max={today} onChange={(e) => e.target.value && setFromStr(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>To</label>
+            <input type="date" value={toStr} min={fromStr} max={today} onChange={(e) => e.target.value && setToStr(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      {/* Net income cross-exam */}
+      <div className="statRow">
+        <div className="stat">
+          <div className="lbl">Sales</div>
+          <div className="val" style={{ color: 'var(--ok)' }}>{peso(salesTotal)}</div>
+        </div>
+        <div className="stat">
+          <div className="lbl">Expenses</div>
+          <div className="val" style={{ color: 'var(--danger)' }}>−{peso(expensesTotal)}</div>
+        </div>
+        <div className="stat" style={{ borderColor: 'var(--gold)', borderWidth: 2 }}>
+          <div className="lbl">Net income</div>
+          <div className="val" style={{ color: netIncome >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
+            {netIncome < 0 ? '−' + peso(-netIncome) : peso(netIncome)}
+          </div>
+        </div>
+      </div>
+
+      <div className="expBody">
+        {/* Breakdown by category */}
+        <aside className="expBreakdown">
+          <h3>By category</h3>
+          {CATS.map((c) => (
+            <div className="expCatRow" key={c.key}>
+              <span>{c.emoji} {c.label}</span>
+              <b>{peso(Number(byCat[c.key] ?? 0))}</b>
+            </div>
+          ))}
+          {extraCats.map((k) => (
+            <div className="expCatRow" key={k}>
+              <span>🧾 {k}</span>
+              <b>{peso(Number(byCat[k] ?? 0))}</b>
+            </div>
+          ))}
+          <div className="expCatRow total">
+            <span>Total expenses</span>
+            <b>{peso(expensesTotal)}</b>
+          </div>
+        </aside>
+
+        {/* Expense entries */}
+        <div className="expList">
+          {loading ? (
+            <div className="centerNote">Loading…</div>
+          ) : list.length === 0 ? (
+            <div className="centerNote">No expenses for this period yet. Tap “Add expense”.</div>
+          ) : (
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Recorded by</th>
+                    <th className="num">Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((x) => (
+                    <tr key={x.id}>
+                      <td>{prettyDate(x.spent_at)}</td>
+                      <td>{catEmoji(x.category)} {catLabel(x.category)}</td>
+                      <td>{x.note || '—'}</td>
+                      <td>{x.recorded_by_name || '—'}</td>
+                      <td className="num"><b>{peso(x.amount)}</b></td>
+                      <td>
+                        <button className="linkDanger" onClick={() => removeExpense(x)} aria-label="Delete expense">
+                          🗑
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ExpenseModal({
+  defaultDate,
+  onSave,
+  onCancel,
+}: {
+  defaultDate: string;
+  onSave: (data: { category: string; amount: number; note?: string; spent_at: string }) => void;
+  onCancel: () => void;
+}) {
+  const [category, setCategory] = useState<ExpenseCategory>('market');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [date, setDate] = useState(defaultDate);
+  const amt = Number(amount);
+  const valid = amt > 0;
+  return (
+    <>
+      <header>
+        <h3>Add expense</h3>
+      </header>
+      <div className="bodyPad">
+        <label style={{ fontWeight: 600, fontSize: 14 }}>Category</label>
+        <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
+          {CATS.map((c) => (
+            <button key={c.key} className={category === c.key ? 'sel' : ''} onClick={() => setCategory(c.key)}>
+              {c.emoji} {c.label}
+            </button>
+          ))}
+        </div>
+        <div className="field">
+          <label>Amount</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={amount}
+            autoFocus
+            placeholder="0.00"
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Note (optional)</label>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. 2 sacks rice, supplier name…" />
+        </div>
+        <div className="field">
+          <label>Date</label>
+          <input type="date" value={date} max={defaultDate} onChange={(e) => e.target.value && setDate(e.target.value)} />
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={!valid}
+          onClick={() => onSave({ category, amount: amt, note: note.trim() || undefined, spent_at: date })}
+        >
+          Save expense
+        </button>
+      </footer>
+    </>
+  );
+}
