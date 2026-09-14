@@ -194,9 +194,11 @@ export default function Service({
   }
 
   function newOrder() {
+    // Employees are branch-scoped; owners (no home branch) show everywhere.
+    const branchStaff = employees.filter((e) => e.branch_id == null || e.branch_id === branchId);
     openModal(
       <NewOrderModal
-        employees={employees}
+        employees={branchStaff}
         onCancel={closeModal}
         onConfirm={async (data) => {
           try {
@@ -790,11 +792,14 @@ function NewOrderModal({
   const [address, setAddress] = useState('');
   const [landmark, setLandmark] = useState('');
   const [time, setTime] = useState(defTime);
-  const [empId, setEmpId] = useState(''); // for employee purchases
+  const [empId, setEmpId] = useState(''); // for employee purchases ('' | id | '__manual__')
+  const [manualName, setManualName] = useState('');
   const showAddress = type === 'delivery';
   const isEmployee = type === 'employee';
   const timeLabel = type === 'pick_up' ? 'Pickup time' : type === 'delivery' ? 'Deliver by' : 'Ready by';
+  const manual = empId === '__manual__';
   const emp = employees.find((e) => String(e.id) === empId);
+  const buyerName = manual ? manualName.trim() : emp?.name;
   return (
     <>
       <header>
@@ -826,8 +831,20 @@ function NewOrderModal({
                     {e.name}
                   </option>
                 ))}
+                <option value="__manual__">✏️ Enter name manually…</option>
               </select>
             </div>
+            {manual && (
+              <div className="field">
+                <label>Employee name</label>
+                <input
+                  value={manualName}
+                  autoFocus
+                  onChange={(e) => setManualName(e.target.value)}
+                  placeholder="Type the employee's name"
+                />
+              </div>
+            )}
             <p style={{ color: 'var(--muted)', fontSize: 13, margin: '2px 2px 0' }}>
               Add the items, apply a discount, then Pay bill — or leave it open to settle later.
             </p>
@@ -867,10 +884,10 @@ function NewOrderModal({
         </button>
         <button
           className="btn primary"
-          disabled={isEmployee && !emp}
+          disabled={isEmployee && !buyerName}
           onClick={() =>
             isEmployee
-              ? onConfirm({ service_type: 'employee', customer_name: emp?.name })
+              ? onConfirm({ service_type: 'employee', customer_name: buyerName })
               : onConfirm({
                   service_type: type,
                   customer_name: name.trim() || undefined,
