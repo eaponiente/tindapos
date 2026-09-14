@@ -141,6 +141,46 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
   const byCat = net?.by_category ?? {};
   const extraCats = Object.keys(byCat).filter((k) => !CATS.some((c) => c.key === k));
 
+  function openTrend() {
+    openModal(<TrendModal branchId={branchId} onClose={closeModal} />, { wide: true });
+  }
+
+  async function exportXlsx() {
+    try {
+      const XLSX = await import('xlsx');
+      const { from, to } = range();
+      const summary: (string | number)[][] = [
+        ['Talabahan sa Calinan — Expenses & Net income'],
+        ['Period', `${from} to ${to}`],
+        [],
+        ['Sales', salesTotal],
+        ['Expenses', expensesTotal],
+        ['Net income', netIncome],
+        [],
+        ['By category', ''],
+        ...CATS.map((c) => [c.label, Number(byCat[c.key] ?? 0)]),
+        ...extraCats.map((k) => [k, Number(byCat[k] ?? 0)]),
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(summary);
+      const rows = list.map((x) => ({
+        Date: x.spent_at,
+        Category: catLabel(x.category),
+        Note: x.note || '',
+        'Recorded by': x.recorded_by_name || '',
+        Amount: Number(x.amount),
+      }));
+      const ws2 = XLSX.utils.json_to_sheet(
+        rows.length ? rows : [{ Date: '', Category: '', Note: '', 'Recorded by': '', Amount: '' }],
+      );
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Expenses');
+      XLSX.writeFile(wb, `talabahan-expenses-${from}_to_${to}.xlsx`);
+    } catch {
+      toast('Could not export the file');
+    }
+  }
+
   return (
     <section className="screen">
       <div className="topbar">
@@ -157,6 +197,12 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
             Range
           </button>
         </div>
+        <button className="btn" onClick={openTrend}>
+          📈 Trend
+        </button>
+        <button className="btn" onClick={exportXlsx}>
+          ⬇ Export
+        </button>
         <button className="btn primary" onClick={addExpense}>
           ＋ Add expense
         </button>
@@ -256,6 +302,85 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+function TrendModal({ branchId, onClose }: { branchId: number | null; onClose: () => void }) {
+  const [rows, setRows] = useState<
+    { label: string; sales: number; expenses: number; net: number }[] | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const now = new Date();
+    const months: { label: string; from: string; to: string }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      months.push({
+        label: d.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }),
+        from: isoDate(d),
+        to: i === 0 ? isoDate(now) : isoDate(last),
+      });
+    }
+    Promise.all(months.map((m) => api.netIncome(branchId, m.from, m.to)))
+      .then((res) => {
+        if (cancelled) return;
+        setRows(
+          months.map((m, i) => {
+            const sales = Number(res[i].sales_total);
+            const expenses = Number(res[i].expenses_total);
+            return { label: m.label, sales, expenses, net: sales - expenses };
+          }),
+        );
+      })
+      .catch(() => !cancelled && setRows([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [branchId]);
+
+  const maxAbs = rows ? Math.max(1, ...rows.map((r) => Math.abs(r.net))) : 1;
+
+  return (
+    <>
+      <header>
+        <h3>📈 Net income — last 6 months</h3>
+      </header>
+      <div className="bodyPad">
+        {!rows ? (
+          <div className="centerNote">Loading…</div>
+        ) : (
+          <div className="trendWrap">
+            {rows.map((r) => (
+              <div className="trendRow" key={r.label}>
+                <span className="tMonth">{r.label}</span>
+                <div className="tBarTrack">
+                  <div
+                    className="tBar"
+                    style={{
+                      width: `${(Math.abs(r.net) / maxAbs) * 100}%`,
+                      background: r.net >= 0 ? 'var(--ok)' : 'var(--danger)',
+                    }}
+                  />
+                </div>
+                <span className="tNet" style={{ color: r.net >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
+                  {r.net < 0 ? '−' + peso(-r.net) : peso(r.net)}
+                </span>
+              </div>
+            ))}
+            <div className="trendLegend">
+              Bar = net income (sales − expenses) per month. Tap a month in the tabs above for detail.
+            </div>
+          </div>
+        )}
+      </div>
+      <footer>
+        <button className="btn primary" onClick={onClose}>
+          Done
+        </button>
+      </footer>
+    </>
   );
 }
 

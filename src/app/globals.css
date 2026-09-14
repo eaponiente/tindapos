@@ -520,6 +520,13 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .expList{flex:1; min-width:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
 .linkDanger{color:var(--danger); font-size:16px; padding:4px 8px; border-radius:8px;}
 .linkDanger:active{background:rgba(196,72,59,.12);}
+.trendWrap{display:flex; flex-direction:column; gap:12px;}
+.trendRow{display:flex; align-items:center; gap:12px;}
+.trendRow .tMonth{width:64px; flex-shrink:0; font-weight:700; font-size:14px;}
+.trendRow .tBarTrack{flex:1; height:22px; background:var(--paper); border-radius:6px; overflow:hidden;}
+.trendRow .tBar{height:100%; border-radius:6px; min-width:2px; transition:width .2s;}
+.trendRow .tNet{width:110px; flex-shrink:0; text-align:right; font-weight:800; font-variant-numeric:tabular-nums;}
+.trendLegend{font-size:12.5px; color:var(--muted); margin-top:4px;}
 @media (max-width:860px){
   .expBody{flex-direction:column; overflow-y:auto; padding:6px 12px 84px;}
   .expBreakdown{width:auto;}
