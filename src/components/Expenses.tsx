@@ -109,6 +109,32 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
     );
   }
 
+  function editExpense(x: Expense) {
+    openModal(
+      <ExpenseModal
+        defaultDate={today}
+        initial={{
+          category: x.category,
+          amount: Number(x.amount),
+          payment_method: x.payment_method,
+          note: x.note,
+          spent_at: x.spent_at,
+        }}
+        onCancel={closeModal}
+        onSave={async (data) => {
+          try {
+            await api.updateExpense(x.id, data);
+            closeModal();
+            toast('Expense updated');
+            load();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not update the expense');
+          }
+        }}
+      />,
+    );
+  }
+
   function removeExpense(x: Expense) {
     openModal(
       <>
@@ -335,9 +361,14 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                       <td className="num"><b>{peso(x.amount)}</b></td>
                       <td>
                         {isOwner && (
-                          <button className="linkDanger" onClick={() => removeExpense(x)} aria-label="Delete expense">
-                            🗑
-                          </button>
+                          <span style={{ display: 'inline-flex', gap: 2 }}>
+                            <button className="linkEdit" onClick={() => editExpense(x)} aria-label="Edit expense">
+                              ✏️
+                            </button>
+                            <button className="linkDanger" onClick={() => removeExpense(x)} aria-label="Delete expense">
+                              🗑
+                            </button>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -434,11 +465,13 @@ function TrendModal({ branchId, onClose }: { branchId: number | null; onClose: (
 function ExpenseModal({
   defaultDate,
   lockDate,
+  initial,
   onSave,
   onCancel,
 }: {
   defaultDate: string;
   lockDate?: boolean;
+  initial?: { category: string; amount: number; payment_method?: string; note?: string | null; spent_at: string };
   onSave: (data: {
     category: string;
     amount: number;
@@ -448,17 +481,18 @@ function ExpenseModal({
   }) => void;
   onCancel: () => void;
 }) {
-  const [category, setCategory] = useState<ExpenseCategory>('market');
-  const [amount, setAmount] = useState('');
-  const [payment, setPayment] = useState<'cash' | 'gcash'>('cash');
-  const [note, setNote] = useState('');
-  const [date, setDate] = useState(defaultDate);
+  const editing = !!initial;
+  const [category, setCategory] = useState<ExpenseCategory>((initial?.category as ExpenseCategory) ?? 'market');
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
+  const [payment, setPayment] = useState<'cash' | 'gcash'>(initial?.payment_method === 'gcash' ? 'gcash' : 'cash');
+  const [note, setNote] = useState(initial?.note ?? '');
+  const [date, setDate] = useState(initial?.spent_at ?? defaultDate);
   const amt = Number(amount);
   const valid = amt > 0;
   return (
     <>
       <header>
-        <h3>Add expense</h3>
+        <h3>{editing ? 'Edit expense' : 'Add expense'}</h3>
       </header>
       <div className="bodyPad">
         <label style={{ fontWeight: 600, fontSize: 14 }}>Category</label>
@@ -517,7 +551,7 @@ function ExpenseModal({
             })
           }
         >
-          Save expense
+          {editing ? 'Save changes' : 'Save expense'}
         </button>
       </footer>
     </>

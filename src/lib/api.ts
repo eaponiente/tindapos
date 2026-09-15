@@ -238,6 +238,10 @@ export const api = {
     employee_id: number;
     employee_name: string;
   }) => request<Expense>('/expenses', { method: 'POST', body: JSON.stringify(data) }),
+  updateExpense: (
+    id: number,
+    data: { category?: string; amount?: number; payment_method?: string; note?: string | null; spent_at?: string },
+  ) => request<Expense>(`/expenses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteExpense: (id: number) => request<{ ok: true }>(`/expenses/${id}`, { method: 'DELETE' }),
   netIncome: (branchId: number | null | undefined, from: string, to: string) => {
     const b = branchId ? `branch_id=${branchId}&` : '';
