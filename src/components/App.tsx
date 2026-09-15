@@ -66,7 +66,7 @@ const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] 
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
   { key: 'employees', label: 'Staff', perm: 1, icon: StaffIcon },
   { key: 'branches', label: 'Branches', perm: 2, icon: BranchIcon },
-  { key: 'expenses', label: 'Expenses', perm: 2, icon: ExpensesIcon },
+  { key: 'expenses', label: 'Expenses', perm: 1, icon: ExpensesIcon },
   { key: 'activity', label: 'Activity', perm: 2, icon: ActivityIcon },
 ];
 
@@ -434,8 +434,8 @@ function AppShell() {
         {screen === 'branches' && isOwner && (
           <Branches branches={branches} reloadBranches={reloadBranches} session={session} />
         )}
-        {screen === 'expenses' && isOwner && (
-          <Expenses employee={session} branchId={activeBranchId} />
+        {screen === 'expenses' && canManage && (
+          <Expenses employee={session} branchId={activeBranchId} isOwner={isOwner} />
         )}
         {screen === 'activity' && isOwner && <ActivityLogs />}
       </main>

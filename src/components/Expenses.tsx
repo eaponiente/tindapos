@@ -9,6 +9,7 @@ import type { Employee, Expense, ExpenseCategory, NetIncome } from '@/lib/types'
 interface ExpensesProps {
   employee: Employee;
   branchId: number | null;
+  isOwner: boolean;
 }
 
 const CATS: { key: ExpenseCategory; label: string; emoji: string }[] = [
@@ -32,10 +33,12 @@ const prettyDate = (s: string) => {
   }
 };
 
-export default function Expenses({ employee, branchId }: ExpensesProps) {
+export default function Expenses({ employee, branchId, isOwner }: ExpensesProps) {
   const { toast, openModal, closeModal } = useUI();
   const today = isoDate(new Date());
-  const [period, setPeriod] = useState<'today' | 'month' | 'range'>('month');
+  // Managers can input expenses but only see TODAY; owners see any period plus
+  // Sales / Net income / Trend / Export.
+  const [period, setPeriod] = useState<'today' | 'month' | 'range'>(isOwner ? 'month' : 'today');
   const [fromStr, setFromStr] = useState(today);
   const [toStr, setToStr] = useState(today);
   const [net, setNet] = useState<NetIncome | null>(null);
@@ -44,6 +47,7 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
 
   const range = useCallback((): { from: string; to: string } => {
     const now = new Date();
+    if (!isOwner) return { from: today, to: today }; // managers: today only
     if (period === 'month') return { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
     if (period === 'range') {
       const a = fromStr <= toStr ? fromStr : toStr;
@@ -51,24 +55,30 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
       return { from: a, to: b };
     }
     return { from: today, to: today };
-  }, [period, fromStr, toStr, today]);
+  }, [isOwner, period, fromStr, toStr, today]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { from, to } = range();
-      const [n, xs] = await Promise.all([
-        api.netIncome(branchId, from, to),
-        api.expenses(branchId, from, to),
-      ]);
-      setNet(n);
-      setList(xs);
+      if (isOwner) {
+        const [n, xs] = await Promise.all([
+          api.netIncome(branchId, from, to),
+          api.expenses(branchId, from, to),
+        ]);
+        setNet(n);
+        setList(xs);
+      } else {
+        // Managers never fetch sales — just today's expense entries.
+        setNet(null);
+        setList(await api.expenses(branchId, from, to));
+      }
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not load expenses');
     } finally {
       setLoading(false);
     }
-  }, [range, branchId, toast]);
+  }, [isOwner, range, branchId, toast]);
 
   useEffect(() => {
     load();
@@ -78,6 +88,7 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
     openModal(
       <ExpenseModal
         defaultDate={today}
+        lockDate={!isOwner}
         onCancel={closeModal}
         onSave={async (data) => {
           try {
@@ -134,16 +145,18 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
     );
   }
 
-  const salesTotal = Number(net?.sales_total ?? 0);
-  const expensesTotal = Number(net?.expenses_total ?? 0);
-  const netIncome = salesTotal - expensesTotal;
   const sel = (active: boolean) => (active ? 'sel' : '');
-  // Category rows: the five known ones first (even if zero), then any extras.
-  const byCat = net?.by_category ?? {};
+  // Expense totals + breakdown are computed from the entries, so they work for
+  // managers too (who never fetch the sales side).
+  const expensesTotal = list.reduce((a, x) => a + Number(x.amount), 0);
+  const byCat: Record<string, number> = {};
+  for (const x of list) byCat[x.category] = (byCat[x.category] ?? 0) + Number(x.amount);
   const extraCats = Object.keys(byCat).filter((k) => !CATS.some((c) => c.key === k));
-  // Cash vs GCash split (from the entries; pre-migration rows count as cash).
   const gcashExp = list.filter((x) => x.payment_method === 'gcash').reduce((a, x) => a + Number(x.amount), 0);
   const cashExp = expensesTotal - gcashExp;
+  // Sales / net income are owner-only.
+  const salesTotal = Number(net?.sales_total ?? 0);
+  const netIncome = salesTotal - expensesTotal;
 
   function openTrend() {
     openModal(<TrendModal branchId={branchId} onClose={closeModal} />, { wide: true });
@@ -193,29 +206,35 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
       <div className="topbar">
         <h2>Expenses</h2>
         <div className="grow"></div>
-        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr', maxWidth: 300 }}>
-          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
-            Today
-          </button>
-          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
-            Month
-          </button>
-          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
-            Range
-          </button>
-        </div>
-        <button className="btn" onClick={openTrend}>
-          📈 Trend
-        </button>
-        <button className="btn" onClick={exportXlsx}>
-          ⬇ Export
-        </button>
+        {isOwner ? (
+          <>
+            <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: '1fr 1fr 1fr', maxWidth: 300 }}>
+              <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>
+                Today
+              </button>
+              <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>
+                Month
+              </button>
+              <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>
+                Range
+              </button>
+            </div>
+            <button className="btn" onClick={openTrend}>
+              📈 Trend
+            </button>
+            <button className="btn" onClick={exportXlsx}>
+              ⬇ Export
+            </button>
+          </>
+        ) : (
+          <span className="tblSessionNo">Today&apos;s expenses</span>
+        )}
         <button className="btn primary" onClick={addExpense}>
           ＋ Add expense
         </button>
       </div>
 
-      {period === 'range' && (
+      {isOwner && period === 'range' && (
         <div className="fieldRow" style={{ padding: '0 20px' }}>
           <div className="field">
             <label>From</label>
@@ -228,23 +247,32 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
         </div>
       )}
 
-      {/* Net income cross-exam */}
-      <div className="statRow">
-        <div className="stat">
-          <div className="lbl">Sales</div>
-          <div className="val" style={{ color: 'var(--ok)' }}>{peso(salesTotal)}</div>
-        </div>
-        <div className="stat">
-          <div className="lbl">Expenses</div>
-          <div className="val" style={{ color: 'var(--danger)' }}>−{peso(expensesTotal)}</div>
-        </div>
-        <div className="stat" style={{ borderColor: 'var(--gold)', borderWidth: 2 }}>
-          <div className="lbl">Net income</div>
-          <div className="val" style={{ color: netIncome >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
-            {netIncome < 0 ? '−' + peso(-netIncome) : peso(netIncome)}
+      {/* Net income cross-exam — owner only (managers don't see sales/profit) */}
+      {isOwner ? (
+        <div className="statRow">
+          <div className="stat">
+            <div className="lbl">Sales</div>
+            <div className="val" style={{ color: 'var(--ok)' }}>{peso(salesTotal)}</div>
+          </div>
+          <div className="stat">
+            <div className="lbl">Expenses</div>
+            <div className="val" style={{ color: 'var(--danger)' }}>−{peso(expensesTotal)}</div>
+          </div>
+          <div className="stat" style={{ borderColor: 'var(--gold)', borderWidth: 2 }}>
+            <div className="lbl">Net income</div>
+            <div className="val" style={{ color: netIncome >= 0 ? 'var(--ok)' : 'var(--danger)' }}>
+              {netIncome < 0 ? '−' + peso(-netIncome) : peso(netIncome)}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="statRow">
+          <div className="stat">
+            <div className="lbl">Today&apos;s expenses</div>
+            <div className="val" style={{ color: 'var(--danger)' }}>{peso(expensesTotal)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="expBody">
         {/* Breakdown by category */}
@@ -306,9 +334,11 @@ export default function Expenses({ employee, branchId }: ExpensesProps) {
                       <td>{x.recorded_by_name || '—'}</td>
                       <td className="num"><b>{peso(x.amount)}</b></td>
                       <td>
-                        <button className="linkDanger" onClick={() => removeExpense(x)} aria-label="Delete expense">
-                          🗑
-                        </button>
+                        {isOwner && (
+                          <button className="linkDanger" onClick={() => removeExpense(x)} aria-label="Delete expense">
+                            🗑
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -403,10 +433,12 @@ function TrendModal({ branchId, onClose }: { branchId: number | null; onClose: (
 
 function ExpenseModal({
   defaultDate,
+  lockDate,
   onSave,
   onCancel,
 }: {
   defaultDate: string;
+  lockDate?: boolean;
   onSave: (data: {
     category: string;
     amount: number;
@@ -461,10 +493,12 @@ function ExpenseModal({
           <label>Note (optional)</label>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. 2 sacks rice, supplier name…" />
         </div>
-        <div className="field">
-          <label>Date</label>
-          <input type="date" value={date} max={defaultDate} onChange={(e) => e.target.value && setDate(e.target.value)} />
-        </div>
+        {!lockDate && (
+          <div className="field">
+            <label>Date</label>
+            <input type="date" value={date} max={defaultDate} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          </div>
+        )}
       </div>
       <footer>
         <button className="btn" onClick={onCancel}>
