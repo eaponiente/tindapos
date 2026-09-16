@@ -22,6 +22,7 @@ const CATS: { key: ExpenseCategory; label: string; emoji: string }[] = [
 const catLabel = (k: string) => CATS.find((c) => c.key === k)?.label ?? k;
 const catEmoji = (k: string) => CATS.find((c) => c.key === k)?.emoji ?? '🧾';
 const payLabel = (m?: string) => (m === 'gcash' ? 'GCash' : m === 'cash' ? 'Cash' : '—');
+const srcLabel = (s?: string) => (s === 'employee' ? "Employee's money" : s === 'sales' ? 'From sales' : '—');
 
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -117,6 +118,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
           category: x.category,
           amount: Number(x.amount),
           payment_method: x.payment_method,
+          fund_source: x.fund_source,
           note: x.note,
           spent_at: x.spent_at,
         }}
@@ -180,6 +182,9 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
   const extraCats = Object.keys(byCat).filter((k) => !CATS.some((c) => c.key === k));
   const gcashExp = list.filter((x) => x.payment_method === 'gcash').reduce((a, x) => a + Number(x.amount), 0);
   const cashExp = expensesTotal - gcashExp;
+  // Money source split: employee's own money is what the shop owes back.
+  const employeeExp = list.filter((x) => x.fund_source === 'employee').reduce((a, x) => a + Number(x.amount), 0);
+  const salesExp = expensesTotal - employeeExp;
   // Sales / net income are owner-only.
   const salesTotal = Number(net?.sales_total ?? 0);
   const netIncome = salesTotal - expensesTotal;
@@ -209,6 +214,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
         Date: x.spent_at,
         Category: catLabel(x.category),
         'Paid via': payLabel(x.payment_method),
+        'Money from': srcLabel(x.fund_source),
         Note: x.note || '',
         'Recorded by': x.recorded_by_name || '',
         Amount: Number(x.amount),
@@ -216,7 +222,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const ws2 = XLSX.utils.json_to_sheet(
         rows.length
           ? rows
-          : [{ Date: '', Category: '', 'Paid via': '', Note: '', 'Recorded by': '', Amount: '' }],
+          : [{ Date: '', Category: '', 'Paid via': '', 'Money from': '', Note: '', 'Recorded by': '', Amount: '' }],
       );
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
@@ -328,6 +334,14 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             <span>GCash</span>
             <b>{peso(gcashExp)}</b>
           </div>
+          <div className="expCatRow" style={{ color: 'var(--muted)', fontSize: 13 }}>
+            <span>💰 From sales</span>
+            <b>{peso(salesExp)}</b>
+          </div>
+          <div className="expCatRow" style={{ color: employeeExp ? 'var(--danger)' : 'var(--muted)', fontSize: 13 }}>
+            <span>🧑 Employee&apos;s money{employeeExp ? ' (owed)' : ''}</span>
+            <b>{peso(employeeExp)}</b>
+          </div>
         </aside>
 
         {/* Expense entries */}
@@ -344,6 +358,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                     <th>Date</th>
                     <th>Category</th>
                     <th>Paid via</th>
+                    <th>Money from</th>
                     <th>Note</th>
                     <th>Recorded by</th>
                     <th className="num">Amount</th>
@@ -356,6 +371,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                       <td>{prettyDate(x.spent_at)}</td>
                       <td>{catEmoji(x.category)} {catLabel(x.category)}</td>
                       <td>{payLabel(x.payment_method)}</td>
+                      <td>{srcLabel(x.fund_source)}</td>
                       <td>{x.note || '—'}</td>
                       <td>{x.recorded_by_name || '—'}</td>
                       <td className="num"><b>{peso(x.amount)}</b></td>
@@ -471,11 +487,19 @@ function ExpenseModal({
 }: {
   defaultDate: string;
   lockDate?: boolean;
-  initial?: { category: string; amount: number; payment_method?: string; note?: string | null; spent_at: string };
+  initial?: {
+    category: string;
+    amount: number;
+    payment_method?: string;
+    fund_source?: string;
+    note?: string | null;
+    spent_at: string;
+  };
   onSave: (data: {
     category: string;
     amount: number;
     payment_method: string;
+    fund_source: string;
     note?: string;
     spent_at: string;
   }) => void;
@@ -485,6 +509,7 @@ function ExpenseModal({
   const [category, setCategory] = useState<ExpenseCategory>((initial?.category as ExpenseCategory) ?? 'market');
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
   const [payment, setPayment] = useState<'cash' | 'gcash'>(initial?.payment_method === 'gcash' ? 'gcash' : 'cash');
+  const [source, setSource] = useState<'sales' | 'employee'>(initial?.fund_source === 'employee' ? 'employee' : 'sales');
   const [note, setNote] = useState(initial?.note ?? '');
   const [date, setDate] = useState(initial?.spent_at ?? defaultDate);
   const amt = Number(amount);
@@ -523,6 +548,15 @@ function ExpenseModal({
             GCash
           </button>
         </div>
+        <label style={{ fontWeight: 600, fontSize: 14 }}>Money came from</label>
+        <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
+          <button className={source === 'sales' ? 'sel' : ''} onClick={() => setSource('sales')}>
+            💰 Sales
+          </button>
+          <button className={source === 'employee' ? 'sel' : ''} onClick={() => setSource('employee')}>
+            🧑 Employee&apos;s money
+          </button>
+        </div>
         <div className="field">
           <label>Note (optional)</label>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. 2 sacks rice, supplier name…" />
@@ -546,6 +580,7 @@ function ExpenseModal({
               category,
               amount: amt,
               payment_method: payment,
+              fund_source: source,
               note: note.trim() || undefined,
               spent_at: date,
             })

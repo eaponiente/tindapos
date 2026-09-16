@@ -198,6 +198,7 @@ export interface Expense {
   category: string; // one of ExpenseCategory (free text for future categories)
   amount: number;
   payment_method?: string; // 'cash' | 'gcash' (may be absent on pre-migration rows)
+  fund_source?: string; // 'sales' | 'employee' (where the money came from)
   note: string | null;
   spent_at: string; // YYYY-MM-DD
   recorded_by: number | null;

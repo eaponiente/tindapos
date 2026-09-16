@@ -19,17 +19,28 @@ export const PATCH = handler(async (request: NextRequest, { params }: Ctx) => {
   if (body.note !== undefined) patch.note = body.note?.trim() || null;
   if (body.spent_at) patch.spent_at = body.spent_at;
   if (body.payment_method) patch.payment_method = body.payment_method === 'gcash' ? 'gcash' : 'cash';
+  if (body.fund_source) patch.fund_source = body.fund_source === 'employee' ? 'employee' : 'sales';
   if (Object.keys(patch).length === 0) return fail('Nothing to update');
 
-  let { data, error } = await db().from('expenses').update(patch).eq('id', Number(id)).select('*').single();
-  // Graceful fallback if payment_method isn't migrated yet.
-  if (error && /payment_method/i.test(error.message)) {
-    const { payment_method, ...rest } = patch;
-    void payment_method;
-    ({ data, error } = await db().from('expenses').update(rest).eq('id', Number(id)).select('*').single());
+  const upd = (row: Record<string, unknown>) =>
+    db().from('expenses').update(row).eq('id', Number(id)).select('*').single();
+  let current = patch;
+  let res = await upd(current);
+  // Graceful fallbacks if a column isn't migrated yet.
+  if (res.error && /fund_source/i.test(res.error.message)) {
+    const { fund_source, ...rest } = current;
+    void fund_source;
+    current = rest;
+    res = await upd(current);
   }
-  if (error) return fail(error.message);
-  return NextResponse.json(data);
+  if (res.error && /payment_method/i.test(res.error.message)) {
+    const { payment_method, ...rest } = current;
+    void payment_method;
+    current = rest;
+    res = await upd(current);
+  }
+  if (res.error) return fail(res.error.message);
+  return NextResponse.json(res.data);
 });
 
 /** Delete an expense (owner correcting a mistake). */

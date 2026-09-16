@@ -38,16 +38,17 @@ export const POST = handler(async (request: NextRequest) => {
     recorded_by_name: body.employee_name ?? null,
   };
   const payment = body.payment_method === 'gcash' ? 'gcash' : 'cash';
+  const source = body.fund_source === 'employee' ? 'employee' : 'sales';
 
-  let { data, error } = await db()
-    .from('expenses')
-    .insert({ ...base, payment_method: payment })
-    .select('*')
-    .single();
-  // Graceful fallback if the payment_method column isn't migrated yet.
-  if (error && /payment_method/i.test(error.message)) {
-    ({ data, error } = await db().from('expenses').insert(base).select('*').single());
+  const insert = (row: Record<string, unknown>) => db().from('expenses').insert(row).select('*').single();
+  let res = await insert({ ...base, payment_method: payment, fund_source: source });
+  // Graceful fallbacks if a column isn't migrated yet (fund_source, then payment_method).
+  if (res.error && /fund_source/i.test(res.error.message)) {
+    res = await insert({ ...base, payment_method: payment });
   }
-  if (error) return fail(error.message);
-  return NextResponse.json(data, { status: 201 });
+  if (res.error && /payment_method/i.test(res.error.message)) {
+    res = await insert(base);
+  }
+  if (res.error) return fail(res.error.message);
+  return NextResponse.json(res.data, { status: 201 });
 });
