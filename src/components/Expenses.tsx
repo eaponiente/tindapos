@@ -36,9 +36,9 @@ const prettyDate = (s: string) => {
 export default function Expenses({ employee, branchId, isOwner }: ExpensesProps) {
   const { toast, openModal, closeModal } = useUI();
   const today = isoDate(new Date());
-  // Managers can input expenses but only see TODAY; owners see any period plus
-  // Sales / Net income / Trend / Export.
-  const [period, setPeriod] = useState<'today' | 'month' | 'range'>(isOwner ? 'month' : 'today');
+  // Opens on Today by default; owners can switch to Month / Range. Managers
+  // only ever see Today.
+  const [period, setPeriod] = useState<'today' | 'month' | 'range'>('today');
   const [fromStr, setFromStr] = useState(today);
   const [toStr, setToStr] = useState(today);
   const [net, setNet] = useState<NetIncome | null>(null);
