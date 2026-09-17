@@ -14,6 +14,7 @@ interface ItemFormState {
   category_id: number | '';
   cost: number | '';
   price: number | '';
+  employee_price: number | '';
   stock: number;
   low_stock: number;
 }
@@ -94,6 +95,7 @@ export default function Inventory({
         item?.category_id ?? draft.category_id ?? categories[0]?.id ?? ('' as number | ''),
       cost: item?.cost ?? draft.cost ?? ('' as number | ''),
       price: item?.price ?? draft.price ?? ('' as number | ''),
+      employee_price: item?.employee_price ?? draft.employee_price ?? ('' as number | ''),
       stock: item?.stock ?? draft.stock ?? 0,
       low_stock: item?.low_stock ?? draft.low_stock ?? 5,
     };
@@ -226,6 +228,19 @@ export default function Inventory({
                 />
               </div>
             </div>
+            <div className="field">
+              <label>Employee price (₱) — optional, staff pay this</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="Blank = regular price for staff"
+                defaultValue={state.employee_price}
+                onChange={(e) => {
+                  state.employee_price = e.target.value === '' ? '' : +e.target.value;
+                  saveDraft();
+                }}
+              />
+            </div>
             <div className="fieldRow">
               <div className="field">
                 <label>{isNew ? 'Opening stock' : 'Current stock'}</label>
@@ -285,6 +300,7 @@ export default function Inventory({
                   category_id: state.category_id || null,
                   cost: +state.cost || 0,
                   price: +state.price || 0,
+                  employee_price: state.employee_price === '' ? null : +state.employee_price,
                   low_stock: +state.low_stock || 0,
                 };
                 try {

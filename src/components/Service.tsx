@@ -230,12 +230,31 @@ export default function Service({
     }
   }
 
+  // Automatic employee pricing: for an 👤 Employee session, each line is
+  // charged its item's employee_price (when set and lower), and the saving is
+  // applied as a discount on the bill. Returns null for non-employee sessions.
+  function employeeDiscount(session: TableSession) {
+    if (session.service_type !== 'employee') return null;
+    const linePrice = (l: TableSession['items'][number]) => {
+      const it = items.find((i) => i.id === l.item_id);
+      const ep = it?.employee_price;
+      return ep != null && Number(ep) < Number(l.price) ? Number(ep) : Number(l.price);
+    };
+    const regular = session.items.reduce((a, l) => a + Number(l.price) * l.qty, 0);
+    const staff = session.items.reduce((a, l) => a + linePrice(l) * l.qty, 0);
+    const discount = Math.round((regular - staff) * 100) / 100;
+    const pct = regular > 0 ? (discount / regular) * 100 : 0;
+    return { regular, staff, discount, pct };
+  }
+
   // ── Session actions ─────────────────────────────────────────────────────────
   function payBill(session: TableSession) {
+    const ed = employeeDiscount(session);
     openPayBill(ui, {
       session,
       employeeId: employee.id,
       reloadItems,
+      initialDiscount: ed && ed.discount > 0 ? { pct: ed.pct, label: 'Employee price' } : undefined,
       onPaid: (sale) => openSessionReceipt(ui, { sale, title: 'Bill paid 🎉', onDone: backToLanding }),
     });
   }
@@ -414,6 +433,7 @@ export default function Service({
     const dine = s.service_type === 'dine_in';
     const rounds = groupRounds(s);
     const hasCustomer = s.customer_name || s.customer_phone || s.customer_address || s.customer_landmark;
+    const ed = employeeDiscount(s); // employee price saving, if any
     return (
       <section className="screen">
         <div className="topbar">
@@ -484,10 +504,27 @@ export default function Service({
             )}
           </div>
           <aside className="sessionSide">
-            <div className="sessionTotal">
-              <span>Total</span>
-              <b>{peso(s.total)}</b>
-            </div>
+            {ed && ed.discount > 0 ? (
+              <div className="sessionTotal empPriced">
+                <div className="totRow" style={{ color: 'rgba(255,255,255,.8)' }}>
+                  <span>Subtotal</span>
+                  <span>{peso(ed.regular)}</span>
+                </div>
+                <div className="totRow" style={{ color: '#8AE0A8' }}>
+                  <span>👤 Employee price</span>
+                  <span>−{peso(ed.discount)}</span>
+                </div>
+                <div className="totRow" style={{ fontWeight: 800, fontSize: 20, marginTop: 4 }}>
+                  <span>Total</span>
+                  <span>{peso(ed.staff)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="sessionTotal">
+                <span>Total</span>
+                <b>{peso(s.total)}</b>
+              </div>
+            )}
             <button className="tblAction add" onClick={() => setMode({ screen: 'order', session: s })}>
               ＋ Add order
             </button>

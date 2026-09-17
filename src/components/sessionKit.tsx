@@ -39,15 +39,22 @@ export function groupRounds(s: TableSession) {
  *  onPaid with the receipt. */
 export function openPayBill(
   ui: SessionUI,
-  opts: { session: TableSession; employeeId: number; reloadItems: () => Promise<void>; onPaid: (sale: Sale) => void },
+  opts: {
+    session: TableSession;
+    employeeId: number;
+    reloadItems: () => Promise<void>;
+    onPaid: (sale: Sale) => void;
+    // Pre-applied discount (e.g. the automatic employee price). Still removable.
+    initialDiscount?: { pct: number; label: string };
+  },
 ) {
   const { session, employeeId, reloadItems, onPaid } = opts;
   if (session.total <= 0) {
     ui.toast('This order has no items to pay for');
     return;
   }
-  let pct = 0;
-  let label = '';
+  let pct = opts.initialDiscount?.pct ?? 0;
+  let label = opts.initialDiscount?.label ?? '';
 
   const openBill = () => {
     const discount = round2((session.total * pct) / 100);

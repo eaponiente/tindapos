@@ -28,22 +28,27 @@ export const POST = handler(async (request: NextRequest) => {
   if (invalid) return fail(invalid);
   if (!body.branch_id) return fail('A branch is required');
 
-  const { data, error } = await db()
-    .from('items')
-    .insert({
-      name: body.name,
-      sku: body.sku,
-      branch_id: body.branch_id,
-      category_id: body.category_id || null,
-      cost: Number(body.cost),
-      price: Number(body.price),
-      stock: Number(body.stock),
-      low_stock: Number(body.low_stock),
-      color: body.color || '#B88A2E',
-    })
-    .select(ITEM_SELECT)
-    .single();
-  if (error) return fail(friendlyDbError(error, 'SKU'));
+  const row: Record<string, unknown> = {
+    name: body.name,
+    sku: body.sku,
+    branch_id: body.branch_id,
+    category_id: body.category_id || null,
+    cost: Number(body.cost),
+    price: Number(body.price),
+    employee_price:
+      body.employee_price === '' || body.employee_price == null ? null : Number(body.employee_price),
+    stock: Number(body.stock),
+    low_stock: Number(body.low_stock),
+    color: body.color || '#B88A2E',
+  };
+  const insert = () => db().from('items').insert(row).select(ITEM_SELECT).single();
+  let res = await insert();
+  // Graceful fallback if employee_price isn't migrated yet.
+  if (res.error && /employee_price/i.test(res.error.message)) {
+    delete row.employee_price;
+    res = await insert();
+  }
+  if (res.error) return fail(friendlyDbError(res.error, 'SKU'));
 
-  return NextResponse.json(mapItem(data), { status: 201 });
+  return NextResponse.json(mapItem(res.data), { status: 201 });
 });

@@ -48,6 +48,7 @@ export interface Item {
   category_id: number | null;
   cost: number;
   price: number;
+  employee_price?: number | null; // staff price for this item (null = regular price)
   stock: number;
   low_stock: number;
   color: string;

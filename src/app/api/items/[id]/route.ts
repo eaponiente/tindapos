@@ -10,26 +10,30 @@ export const PUT = handler(async (request: NextRequest, { params }: Ctx) => {
   const invalid = validateItem(body);
   if (invalid) return fail(invalid);
 
-  const { data, error } = await db()
-    .from('items')
-    .update({
-      name: body.name,
-      sku: body.sku,
-      category_id: body.category_id || null,
-      cost: Number(body.cost),
-      price: Number(body.price),
-      low_stock: Number(body.low_stock),
-      ...(body.color ? { color: body.color } : {}),
-      // stock is intentionally NOT editable here — use /adjust so every
-      // change is captured in the stock_adjustments audit trail.
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select(ITEM_SELECT)
-    .single();
-  if (error) return fail(friendlyDbError(error, 'SKU'));
+  const row: Record<string, unknown> = {
+    name: body.name,
+    sku: body.sku,
+    category_id: body.category_id || null,
+    cost: Number(body.cost),
+    price: Number(body.price),
+    employee_price:
+      body.employee_price === '' || body.employee_price == null ? null : Number(body.employee_price),
+    low_stock: Number(body.low_stock),
+    ...(body.color ? { color: body.color } : {}),
+    // stock is intentionally NOT editable here — use /adjust so every
+    // change is captured in the stock_adjustments audit trail.
+    updated_at: new Date().toISOString(),
+  };
+  const update = () => db().from('items').update(row).eq('id', id).select(ITEM_SELECT).single();
+  let res = await update();
+  // Graceful fallback if employee_price isn't migrated yet.
+  if (res.error && /employee_price/i.test(res.error.message)) {
+    delete row.employee_price;
+    res = await update();
+  }
+  if (res.error) return fail(friendlyDbError(res.error, 'SKU'));
 
-  return NextResponse.json(mapItem(data));
+  return NextResponse.json(mapItem(res.data));
 });
 
 export const DELETE = handler(async (_request: NextRequest, { params }: Ctx) => {

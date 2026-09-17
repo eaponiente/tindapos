@@ -59,6 +59,7 @@ export function mapItem(row: ItemRow): Item {
     position: Number(row.position) || 0,
     cost,
     price,
+    employee_price: row.employee_price == null ? null : Number(row.employee_price),
     margin_pct: price <= 0 ? 0 : Math.round(((price - cost) / price) * 100),
     status,
     image_url: row.image
