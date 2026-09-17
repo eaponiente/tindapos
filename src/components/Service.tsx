@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
-import Sell, { orderTypeLabel } from './Sell';
+import Sell, { orderTypeLabel, billText, printThermalText } from './Sell';
 import { groupRounds, openPayBill, openSessionReceipt } from './sessionKit';
 import type {
   Category,
@@ -245,6 +245,31 @@ export default function Service({
     const discount = Math.round((regular - staff) * 100) / 100;
     const pct = regular > 0 ? (discount / regular) * 100 : 0;
     return { regular, staff, discount, pct };
+  }
+
+  // Print a provisional bill (guest check) so diners can see what they'll pay,
+  // without closing the session. Reflects the automatic employee price.
+  function printBill(session: TableSession) {
+    if (session.items.length === 0) {
+      toast('No items to bill yet');
+      return;
+    }
+    const dine = session.service_type === 'dine_in';
+    const ed = employeeDiscount(session);
+    const ok = printThermalText(
+      billText({
+        tableLabel: dine ? session.tables_label : null,
+        typeLabel: dine ? null : orderTypeLabel(session.service_type),
+        customerName: session.customer_name,
+        cashier: employee.name,
+        lines: session.items.map((l) => ({ name: l.name, price: Number(l.price), qty: l.qty })),
+        subtotal: session.total,
+        discount: ed && ed.discount > 0 ? ed.discount : 0,
+        discountLabel: 'Employee price',
+        total: ed && ed.discount > 0 ? ed.staff : session.total,
+      }) + '\n\n\n\n',
+    );
+    toast(ok ? 'Bill sent to printer' : 'Could not reach the printer');
   }
 
   // ── Session actions ─────────────────────────────────────────────────────────
@@ -527,6 +552,9 @@ export default function Service({
             )}
             <button className="tblAction add" onClick={() => setMode({ screen: 'order', session: s })}>
               ＋ Add order
+            </button>
+            <button className="tblAction" onClick={() => printBill(s)}>
+              🧾 Print bill
             </button>
             <button className="tblAction pay" onClick={() => payBill(s)}>
               💵 Pay bill

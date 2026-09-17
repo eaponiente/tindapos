@@ -658,8 +658,12 @@ export function printReceipt(sale: Sale): boolean {
  *  NOTE: the exact RawBT payload encoding is confirmed on the real device — if
  *  the print comes out garbled or blank, we switch the encoding here. */
 export function printThermal(sale: Sale): boolean {
+  return printThermalText(receiptText(sale) + '\n\n\n\n'); // feed paper past the cutter
+}
+
+/** Low-level: hand any monospace text to the RawBT print bridge. */
+export function printThermalText(text: string): boolean {
   try {
-    const text = receiptText(sale) + '\n\n\n\n'; // feed paper past the cutter
     const a = document.createElement('a');
     a.href = 'rawbt:' + encodeURIComponent(text);
     a.style.display = 'none';
@@ -670,6 +674,44 @@ export function printThermal(sale: Sale): boolean {
   } catch {
     return false;
   }
+}
+
+/** A provisional BILL (guest check) for an open table/order — clearly not an
+ *  official receipt, and no receipt number since nothing is paid yet. */
+export function billText(opts: {
+  tableLabel?: string | null;
+  typeLabel?: string | null;
+  customerName?: string | null;
+  cashier: string;
+  lines: { name: string; price: number; qty: number }[];
+  subtotal: number;
+  discount?: number;
+  discountLabel?: string;
+  total: number;
+}): string {
+  let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
+  s += '--------------------------------\n';
+  s += '            * BILL *\n';
+  s += '     Not an official receipt\n';
+  s += '--------------------------------\n';
+  if (opts.tableLabel) s += `Table: ${opts.tableLabel}\n`;
+  else if (opts.typeLabel) s += `${opts.typeLabel}\n`;
+  if (opts.customerName) s += `Customer: ${opts.customerName}\n`;
+  s += `${fmtDT(new Date().toISOString())}\nCashier: ${opts.cashier}\n`;
+  s += '--------------------------------\n';
+  opts.lines.forEach((l) => {
+    s += `${l.qty} x ${l.name}\n`;
+    s += `  @${peso(l.price)}`.padEnd(22) + peso(l.price * l.qty).padStart(10) + '\n';
+  });
+  s += '--------------------------------\n';
+  s += 'Subtotal'.padEnd(22) + peso(opts.subtotal).padStart(10) + '\n';
+  if (opts.discount && opts.discount > 0)
+    s += (opts.discountLabel || 'Discount').padEnd(22) + ('-' + peso(opts.discount)).padStart(10) + '\n';
+  s += 'TOTAL DUE'.padEnd(22) + peso(opts.total).padStart(10) + '\n';
+  s += '--------------------------------\n';
+  s += '   Please pay at the counter\n';
+  s += '    *** Not a receipt ***';
+  return s;
 }
 
 /** Print a rich HTML document (used for the full-width sales report table, which
