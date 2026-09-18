@@ -234,6 +234,7 @@ export const api = {
     amount: number;
     payment_method: string;
     fund_source: string;
+    scope: string;
     note?: string;
     spent_at?: string;
     employee_id: number;
@@ -246,6 +247,7 @@ export const api = {
       amount?: number;
       payment_method?: string;
       fund_source?: string;
+      scope?: string;
       note?: string | null;
       spent_at?: string;
     },

@@ -37,17 +37,20 @@ export const POST = handler(async (request: NextRequest) => {
     recorded_by: body.employee_id ?? null,
     recorded_by_name: body.employee_name ?? null,
   };
-  const payment = body.payment_method === 'gcash' ? 'gcash' : 'cash';
-  const source = body.fund_source === 'employee' ? 'employee' : 'sales';
-
-  const insert = (row: Record<string, unknown>) => db().from('expenses').insert(row).select('*').single();
-  let res = await insert({ ...base, payment_method: payment, fund_source: source });
-  // Graceful fallbacks if a column isn't migrated yet (fund_source, then payment_method).
-  if (res.error && /fund_source/i.test(res.error.message)) {
-    res = await insert({ ...base, payment_method: payment });
-  }
-  if (res.error && /payment_method/i.test(res.error.message)) {
-    res = await insert(base);
+  const full: Record<string, unknown> = {
+    ...base,
+    payment_method: body.payment_method === 'gcash' ? 'gcash' : 'cash',
+    fund_source: body.fund_source === 'employee' ? 'employee' : 'sales',
+    scope: body.scope === 'bank' ? 'bank' : 'daily',
+  };
+  const insert = () => db().from('expenses').insert(full).select('*').single();
+  let res = await insert();
+  // Graceful fallbacks if a newer column isn't migrated yet — drop the offending one and retry.
+  for (const col of ['scope', 'fund_source', 'payment_method']) {
+    if (res.error && new RegExp(col, 'i').test(res.error.message)) {
+      delete full[col];
+      res = await insert();
+    }
   }
   if (res.error) return fail(res.error.message);
   return NextResponse.json(res.data, { status: 201 });

@@ -20,24 +20,17 @@ export const PATCH = handler(async (request: NextRequest, { params }: Ctx) => {
   if (body.spent_at) patch.spent_at = body.spent_at;
   if (body.payment_method) patch.payment_method = body.payment_method === 'gcash' ? 'gcash' : 'cash';
   if (body.fund_source) patch.fund_source = body.fund_source === 'employee' ? 'employee' : 'sales';
+  if (body.scope) patch.scope = body.scope === 'bank' ? 'bank' : 'daily';
   if (Object.keys(patch).length === 0) return fail('Nothing to update');
 
-  const upd = (row: Record<string, unknown>) =>
-    db().from('expenses').update(row).eq('id', Number(id)).select('*').single();
-  let current = patch;
-  let res = await upd(current);
-  // Graceful fallbacks if a column isn't migrated yet.
-  if (res.error && /fund_source/i.test(res.error.message)) {
-    const { fund_source, ...rest } = current;
-    void fund_source;
-    current = rest;
-    res = await upd(current);
-  }
-  if (res.error && /payment_method/i.test(res.error.message)) {
-    const { payment_method, ...rest } = current;
-    void payment_method;
-    current = rest;
-    res = await upd(current);
+  const upd = () => db().from('expenses').update(patch).eq('id', Number(id)).select('*').single();
+  let res = await upd();
+  // Graceful fallbacks if a newer column isn't migrated yet.
+  for (const col of ['scope', 'fund_source', 'payment_method']) {
+    if (res.error && new RegExp(col, 'i').test(res.error.message)) {
+      delete patch[col];
+      res = await upd();
+    }
   }
   if (res.error) return fail(res.error.message);
   return NextResponse.json(res.data);

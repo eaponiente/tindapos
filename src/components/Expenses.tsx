@@ -23,6 +23,7 @@ const catLabel = (k: string) => CATS.find((c) => c.key === k)?.label ?? k;
 const catEmoji = (k: string) => CATS.find((c) => c.key === k)?.emoji ?? '🧾';
 const payLabel = (m?: string) => (m === 'gcash' ? 'GCash' : m === 'cash' ? 'Cash' : '—');
 const srcLabel = (s?: string) => (s === 'employee' ? "Employee's money" : s === 'sales' ? 'From sales' : '—');
+const scopeLabel = (s?: string) => (s === 'bank' ? '🏦 Bank / GCash' : 'Daily');
 
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -119,6 +120,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
           amount: Number(x.amount),
           payment_method: x.payment_method,
           fund_source: x.fund_source,
+          scope: x.scope,
           note: x.note,
           spent_at: x.spent_at,
         }}
@@ -174,18 +176,21 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
   }
 
   const sel = (active: boolean) => (active ? 'sel' : '');
-  // Expense totals + breakdown are computed from the entries, so they work for
-  // managers too (who never fetch the sales side).
-  const expensesTotal = list.reduce((a, x) => a + Number(x.amount), 0);
+  // Daily running costs vs Bank/GCash supply/capital. Only DAILY feeds the daily
+  // expense total and net income; Bank/GCash is tracked as its own total.
+  const dailyList = list.filter((x) => x.scope !== 'bank');
+  const bankList = list.filter((x) => x.scope === 'bank');
+  const expensesTotal = dailyList.reduce((a, x) => a + Number(x.amount), 0);
+  const bankTotal = bankList.reduce((a, x) => a + Number(x.amount), 0);
   const byCat: Record<string, number> = {};
-  for (const x of list) byCat[x.category] = (byCat[x.category] ?? 0) + Number(x.amount);
+  for (const x of dailyList) byCat[x.category] = (byCat[x.category] ?? 0) + Number(x.amount);
   const extraCats = Object.keys(byCat).filter((k) => !CATS.some((c) => c.key === k));
-  const gcashExp = list.filter((x) => x.payment_method === 'gcash').reduce((a, x) => a + Number(x.amount), 0);
+  const gcashExp = dailyList.filter((x) => x.payment_method === 'gcash').reduce((a, x) => a + Number(x.amount), 0);
   const cashExp = expensesTotal - gcashExp;
   // Money source split: employee's own money is what the shop owes back.
-  const employeeExp = list.filter((x) => x.fund_source === 'employee').reduce((a, x) => a + Number(x.amount), 0);
+  const employeeExp = dailyList.filter((x) => x.fund_source === 'employee').reduce((a, x) => a + Number(x.amount), 0);
   const salesExp = expensesTotal - employeeExp;
-  // Sales / net income are owner-only.
+  // Sales / net income are owner-only. Net income = Sales − Daily expenses only.
   const salesTotal = Number(net?.sales_total ?? 0);
   const netIncome = salesTotal - expensesTotal;
 
@@ -202,16 +207,18 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
         ['Period', `${from} to ${to}`],
         [],
         ['Sales', salesTotal],
-        ['Expenses', expensesTotal],
+        ['Daily expenses', expensesTotal],
         ['Net income', netIncome],
+        ['Bank / GCash (separate)', bankTotal],
         [],
-        ['By category', ''],
+        ['Daily by category', ''],
         ...CATS.map((c) => [c.label, Number(byCat[c.key] ?? 0)]),
         ...extraCats.map((k) => [k, Number(byCat[k] ?? 0)]),
       ];
       const ws1 = XLSX.utils.aoa_to_sheet(summary);
       const rows = list.map((x) => ({
         Date: x.spent_at,
+        Type: x.scope === 'bank' ? 'Bank/GCash' : 'Daily',
         Category: catLabel(x.category),
         'Paid via': payLabel(x.payment_method),
         'Money from': srcLabel(x.fund_source),
@@ -222,7 +229,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const ws2 = XLSX.utils.json_to_sheet(
         rows.length
           ? rows
-          : [{ Date: '', Category: '', 'Paid via': '', 'Money from': '', Note: '', 'Recorded by': '', Amount: '' }],
+          : [{ Date: '', Type: '', Category: '', 'Paid via': '', 'Money from': '', Note: '', 'Recorded by': '', Amount: '' }],
       );
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
@@ -287,7 +294,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             <div className="val" style={{ color: 'var(--ok)' }}>{peso(salesTotal)}</div>
           </div>
           <div className="stat">
-            <div className="lbl">Expenses</div>
+            <div className="lbl">Daily expenses</div>
             <div className="val" style={{ color: 'var(--danger)' }}>−{peso(expensesTotal)}</div>
           </div>
           <div className="stat" style={{ borderColor: 'var(--gold)', borderWidth: 2 }}>
@@ -296,20 +303,32 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
               {netIncome < 0 ? '−' + peso(-netIncome) : peso(netIncome)}
             </div>
           </div>
+          <div className="stat">
+            <div className="lbl">🏦 Bank / GCash</div>
+            <div className="val" style={{ color: bankTotal ? '#2F6DD0' : 'var(--muted)' }}>
+              {peso(bankTotal)}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="statRow">
           <div className="stat">
-            <div className="lbl">Today&apos;s expenses</div>
+            <div className="lbl">Today&apos;s daily expenses</div>
             <div className="val" style={{ color: 'var(--danger)' }}>{peso(expensesTotal)}</div>
           </div>
+          {bankTotal > 0 && (
+            <div className="stat">
+              <div className="lbl">🏦 Bank / GCash</div>
+              <div className="val" style={{ color: '#2F6DD0' }}>{peso(bankTotal)}</div>
+            </div>
+          )}
         </div>
       )}
 
       <div className="expBody">
-        {/* Breakdown by category */}
+        {/* Breakdown by category (daily expenses) */}
         <aside className="expBreakdown">
-          <h3>By category</h3>
+          <h3>Daily expenses by category</h3>
           {CATS.map((c) => (
             <div className="expCatRow" key={c.key}>
               <span>{c.emoji} {c.label}</span>
@@ -323,7 +342,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             </div>
           ))}
           <div className="expCatRow total">
-            <span>Total expenses</span>
+            <span>Total daily</span>
             <b>{peso(expensesTotal)}</b>
           </div>
           <div className="expCatRow" style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -342,6 +361,13 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             <span>🧑 Employee&apos;s money{employeeExp ? ' (owed)' : ''}</span>
             <b>{peso(employeeExp)}</b>
           </div>
+          <div
+            className="expCatRow"
+            style={{ color: '#2F6DD0', fontSize: 13, borderTop: '1px dashed var(--line)', marginTop: 6 }}
+          >
+            <span>🏦 Bank / GCash (separate)</span>
+            <b>{peso(bankTotal)}</b>
+          </div>
         </aside>
 
         {/* Expense entries */}
@@ -356,6 +382,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                 <thead>
                   <tr>
                     <th>Date</th>
+                    <th>Type</th>
                     <th>Category</th>
                     <th>Paid via</th>
                     <th>Money from</th>
@@ -367,8 +394,9 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                 </thead>
                 <tbody>
                   {list.map((x) => (
-                    <tr key={x.id}>
+                    <tr key={x.id} className={x.scope === 'bank' ? 'bankRow' : ''}>
                       <td>{prettyDate(x.spent_at)}</td>
+                      <td>{scopeLabel(x.scope)}</td>
                       <td>{catEmoji(x.category)} {catLabel(x.category)}</td>
                       <td>{payLabel(x.payment_method)}</td>
                       <td>{srcLabel(x.fund_source)}</td>
@@ -492,6 +520,7 @@ function ExpenseModal({
     amount: number;
     payment_method?: string;
     fund_source?: string;
+    scope?: string;
     note?: string | null;
     spent_at: string;
   };
@@ -500,12 +529,14 @@ function ExpenseModal({
     amount: number;
     payment_method: string;
     fund_source: string;
+    scope: string;
     note?: string;
     spent_at: string;
   }) => void;
   onCancel: () => void;
 }) {
   const editing = !!initial;
+  const [scope, setScope] = useState<'daily' | 'bank'>(initial?.scope === 'bank' ? 'bank' : 'daily');
   const [category, setCategory] = useState<ExpenseCategory>((initial?.category as ExpenseCategory) ?? 'market');
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
   const [payment, setPayment] = useState<'cash' | 'gcash'>(initial?.payment_method === 'gcash' ? 'gcash' : 'cash');
@@ -520,6 +551,20 @@ function ExpenseModal({
         <h3>{editing ? 'Edit expense' : 'Add expense'}</h3>
       </header>
       <div className="bodyPad">
+        <label style={{ fontWeight: 600, fontSize: 14 }}>Expense type</label>
+        <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
+          <button className={scope === 'daily' ? 'sel' : ''} onClick={() => setScope('daily')}>
+            📅 Daily
+          </button>
+          <button className={scope === 'bank' ? 'sel' : ''} onClick={() => setScope('bank')}>
+            🏦 Bank / GCash
+          </button>
+        </div>
+        {scope === 'bank' && (
+          <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '-6px 2px 12px' }}>
+            Kept out of daily expenses & net income — tracked as a separate supply/capital total.
+          </p>
+        )}
         <label style={{ fontWeight: 600, fontSize: 14 }}>Category</label>
         <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
           {CATS.map((c) => (
@@ -581,6 +626,7 @@ function ExpenseModal({
               amount: amt,
               payment_method: payment,
               fund_source: source,
+              scope,
               note: note.trim() || undefined,
               spent_at: date,
             })

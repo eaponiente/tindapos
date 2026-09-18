@@ -524,6 +524,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .linkDanger:active{background:rgba(196,72,59,.12);}
 .linkEdit{font-size:16px; padding:4px 8px; border-radius:8px;}
 .linkEdit:active{background:var(--paper);}
+.expList tbody tr.bankRow{background:rgba(47,109,208,.06);}
 .trendWrap{display:flex; flex-direction:column; gap:12px;}
 .trendRow{display:flex; align-items:center; gap:12px;}
 .trendRow .tMonth{width:64px; flex-shrink:0; font-weight:700; font-size:14px;}

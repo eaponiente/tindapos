@@ -200,6 +200,7 @@ export interface Expense {
   amount: number;
   payment_method?: string; // 'cash' | 'gcash' (may be absent on pre-migration rows)
   fund_source?: string; // 'sales' | 'employee' (where the money came from)
+  scope?: string; // 'daily' | 'bank' (bank = Bank/GCash supply/capital, kept out of daily)
   note: string | null;
   spent_at: string; // YYYY-MM-DD
   recorded_by: number | null;
