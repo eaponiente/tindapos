@@ -31,6 +31,10 @@ type Mode =
   | { screen: 'panel'; session: TableSession }
   | { screen: 'order'; session: TableSession };
 
+// Flat automatic discount applied to every 👤 Employee purchase (per-item
+// Employee prices, when set, override this for that item).
+const EMPLOYEE_DISCOUNT_PCT = 25;
+
 const TYPE_EMOJI: Record<ServiceType, string> = {
   dine_in: '🍽',
   take_out: '🥡',
@@ -230,19 +234,22 @@ export default function Service({
     }
   }
 
-  // Automatic employee pricing: for an 👤 Employee session, each line is
-  // charged its item's employee_price (when set and lower), and the saving is
-  // applied as a discount on the bill. Returns null for non-employee sessions.
+  // Automatic employee pricing: an 👤 Employee session gets a flat 25% off every
+  // item by default. A per-item Employee price (when set and lower) overrides
+  // the 25% for that item. The saving is applied as a discount on the bill.
+  // Returns null for non-employee sessions.
   function employeeDiscount(session: TableSession) {
     if (session.service_type !== 'employee') return null;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
     const linePrice = (l: TableSession['items'][number]) => {
       const it = items.find((i) => i.id === l.item_id);
       const ep = it?.employee_price;
-      return ep != null && Number(ep) < Number(l.price) ? Number(ep) : Number(l.price);
+      if (ep != null && Number(ep) < Number(l.price)) return Number(ep); // per-item override
+      return round2(Number(l.price) * (1 - EMPLOYEE_DISCOUNT_PCT / 100)); // default 25% off
     };
     const regular = session.items.reduce((a, l) => a + Number(l.price) * l.qty, 0);
-    const staff = session.items.reduce((a, l) => a + linePrice(l) * l.qty, 0);
-    const discount = Math.round((regular - staff) * 100) / 100;
+    const staff = round2(session.items.reduce((a, l) => a + linePrice(l) * l.qty, 0));
+    const discount = round2(regular - staff);
     const pct = regular > 0 ? (discount / regular) * 100 : 0;
     return { regular, staff, discount, pct };
   }
@@ -265,7 +272,7 @@ export default function Service({
         lines: session.items.map((l) => ({ name: l.name, price: Number(l.price), qty: l.qty })),
         subtotal: session.total,
         discount: ed && ed.discount > 0 ? ed.discount : 0,
-        discountLabel: 'Employee price',
+        discountLabel: ed ? `Employee ${Math.round(ed.pct)}%` : 'Employee',
         total: ed && ed.discount > 0 ? ed.staff : session.total,
       }) + '\n\n\n\n',
     );
@@ -279,7 +286,7 @@ export default function Service({
       session,
       employeeId: employee.id,
       reloadItems,
-      initialDiscount: ed && ed.discount > 0 ? { pct: ed.pct, label: 'Employee price' } : undefined,
+      initialDiscount: ed && ed.discount > 0 ? { pct: ed.pct, label: `Employee ${Math.round(ed.pct)}%` } : undefined,
       onPaid: (sale) => openSessionReceipt(ui, { sale, title: 'Bill paid 🎉', onDone: backToLanding }),
     });
   }
@@ -536,7 +543,7 @@ export default function Service({
                   <span>{peso(ed.regular)}</span>
                 </div>
                 <div className="totRow" style={{ color: '#8AE0A8' }}>
-                  <span>👤 Employee price</span>
+                  <span>👤 Employee {Math.round(ed.pct)}% off</span>
                   <span>−{peso(ed.discount)}</span>
                 </div>
                 <div className="totRow" style={{ fontWeight: 800, fontSize: 20, marginTop: 4 }}>

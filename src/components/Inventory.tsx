@@ -229,11 +229,11 @@ export default function Inventory({
               </div>
             </div>
             <div className="field">
-              <label>Employee price (₱) — optional, staff pay this</label>
+              <label>Employee price (₱) — optional override</label>
               <input
                 type="number"
                 inputMode="decimal"
-                placeholder="Blank = regular price for staff"
+                placeholder="Blank = default 25% staff discount"
                 defaultValue={state.employee_price}
                 onChange={(e) => {
                   state.employee_price = e.target.value === '' ? '' : +e.target.value;
