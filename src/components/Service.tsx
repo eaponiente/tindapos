@@ -601,7 +601,10 @@ export default function Service({
   // own "who owes" section.
   const foodOrders = tickets.filter((t) => t.service_type !== 'employee');
   const empTabs = tickets.filter((t) => t.service_type === 'employee');
-  const owed = empTabs.reduce((a, t) => a + t.total, 0);
+  // What staff actually pay after the automatic employee discount (flat 25%;
+  // per-item overrides are reflected exactly once the tab is opened).
+  const staffTotal = (t: OrderTicket) => Math.round(t.total * (1 - EMPLOYEE_DISCOUNT_PCT / 100) * 100) / 100;
+  const owed = empTabs.reduce((a, t) => a + staffTotal(t), 0);
   return (
     <section className="screen">
       <div className="topbar">
@@ -723,9 +726,15 @@ export default function Service({
                     <div className="ocName">{t.customer_name || 'Employee'}</div>
                     <div className="ocTime">🕒 since {fmtDT(t.opened_at)}</div>
                     <div className="ocFoot">
-                      <span className="ocTotal">{peso(t.total)}</span>
+                      <span className="ocTotal">
+                        {peso(staffTotal(t))}
+                        {t.total > staffTotal(t) && (
+                          <span className="ocWas">{peso(t.total)}</span>
+                        )}
+                      </span>
                       <span className="ocItems">{t.item_count} items</span>
                     </div>
+                    <div className="ocDisc">👤 {EMPLOYEE_DISCOUNT_PCT}% employee discount</div>
                   </button>
                 ))}
               </div>
