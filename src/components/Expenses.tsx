@@ -24,6 +24,13 @@ const catEmoji = (k: string) => CATS.find((c) => c.key === k)?.emoji ?? '🧾';
 const payLabel = (m?: string) => (m === 'gcash' ? 'GCash' : m === 'cash' ? 'Cash' : '—');
 const srcLabel = (s?: string) => (s === 'employee' ? "Employee's money" : s === 'sales' ? 'From sales' : '—');
 const scopeLabel = (s?: string) => (s === 'bank' ? '🏦 Bank / GCash' : 'Daily');
+// The list filter accepts a category key OR a special sentinel.
+const FILTER_EMPLOYEE = '__employee__';
+const FILTER_BANK = '__bank__';
+const filterLabel = (f: string) =>
+  f === FILTER_EMPLOYEE ? "Employee's money" : f === FILTER_BANK ? 'Bank / GCash' : catLabel(f);
+const filterSlug = (f: string) =>
+  f === FILTER_EMPLOYEE ? 'employee-money' : f === FILTER_BANK ? 'bank' : f;
 
 const isoDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -198,7 +205,13 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
   const presentExtraCats = [...new Set(list.map((x) => x.category))].filter(
     (k) => !CATS.some((c) => c.key === k),
   );
-  const visibleList = catFilter ? list.filter((x) => x.category === catFilter) : list;
+  const visibleList = !catFilter
+    ? list
+    : catFilter === FILTER_EMPLOYEE
+      ? list.filter((x) => x.fund_source === 'employee')
+      : catFilter === FILTER_BANK
+        ? list.filter((x) => x.scope === 'bank')
+        : list.filter((x) => x.category === catFilter);
   const filteredTotal = visibleList.reduce((a, x) => a + Number(x.amount), 0);
 
   function openTrend() {
@@ -211,15 +224,15 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const { from, to } = range();
       // Respect the category filter: export only the shown entries when a
       // specific category is selected.
-      const filtered = catFilter ? catLabel(catFilter) : 'All categories';
+      const filtered = catFilter ? filterLabel(catFilter) : 'All categories';
       const summary: (string | number)[][] = [
         ['Davao Talabahan — Expenses'],
         ['Period', `${from} to ${to}`],
-        ['Category', filtered],
+        ['Filter', filtered],
         [],
         ...(catFilter
           ? [
-              [catLabel(catFilter) + ' total', filteredTotal],
+              [filterLabel(catFilter) + ' total', filteredTotal],
               ['Entries', visibleList.length],
             ]
           : [
@@ -252,7 +265,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
       XLSX.utils.book_append_sheet(wb, ws2, 'Expenses');
-      const catSlug = catFilter ? '-' + catFilter : '';
+      const catSlug = catFilter ? '-' + filterSlug(catFilter) : '';
       XLSX.writeFile(wb, `davao-talabahan-expenses${catSlug}-${from}_to_${to}.xlsx`);
     } catch {
       toast('Could not export the file');
@@ -281,7 +294,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
               📈 Trend
             </button>
             <button className="btn" onClick={exportXlsx}>
-              ⬇ Export{catFilter ? `: ${catLabel(catFilter)}` : ''}
+              ⬇ Export{catFilter ? `: ${filterLabel(catFilter)}` : ''}
             </button>
           </>
         ) : (
@@ -395,16 +408,22 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             <label>Show</label>
             <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
               <option value="">All categories</option>
-              {CATS.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
-              ))}
-              {presentExtraCats.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
+              <optgroup label="Category">
+                {CATS.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+                {presentExtraCats.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Source / type">
+                <option value={FILTER_EMPLOYEE}>🧑 Employee&apos;s money</option>
+                <option value={FILTER_BANK}>🏦 Bank / GCash</option>
+              </optgroup>
             </select>
             {catFilter && (
               <span className="expFilterSum">
@@ -418,7 +437,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
             <div className="centerNote">
               {list.length === 0
                 ? 'No expenses for this period yet. Tap “Add expense”.'
-                : `No ${catLabel(catFilter)} expenses for this period.`}
+                : `No ${filterLabel(catFilter)} expenses for this period.`}
             </div>
           ) : (
             <div className="tableWrap">
