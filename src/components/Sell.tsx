@@ -594,7 +594,7 @@ export function orderTypeLabel(type?: string | null): string {
 }
 
 export function receiptText(sale: Sale): string {
-  let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
+  let s = '        DAVAO TALABAHAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
   s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${
     sale.employee?.name || sale.employee_name || '—'
@@ -689,7 +689,7 @@ export function billText(opts: {
   discountLabel?: string;
   total: number;
 }): string {
-  let s = '      TALABAHAN SA CALINAN\n    Calinan, Davao City PH\n';
+  let s = '        DAVAO TALABAHAN\n    Calinan, Davao City PH\n';
   s += '--------------------------------\n';
   s += '            * BILL *\n';
   s += '     Not an official receipt\n';

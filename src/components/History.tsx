@@ -530,7 +530,7 @@ function buildReportHtml(title: string, periodLabel: string, sales: Sale[], scop
     `<div class="r ${cls}"><span>${esc(label)}</span><span>${esc(value)}</span></div>`;
 
   let html = '';
-  html += `<h1>Talabahan sa Calinan</h1>`;
+  html += `<h1>Davao Talabahan</h1>`;
   html += `<div class="sub">${esc(title)} &mdash; ${esc(periodLabel)}${
     scope ? ' &middot; ' + esc(scope) : ''
   }</div>`;
@@ -993,6 +993,65 @@ function EmployeeSalesModal({ branchId, onClose }: { branchId?: number; onClose:
     };
   }, [branchId, rangeStr]);
 
+  // Merge paid totals with currently-owed (open credit tabs) per employee.
+  const combined = useMemo(() => {
+    if (!data) return [] as { name: string; count: number; paid: number; owed: number }[];
+    const m = new Map<string, { name: string; count: number; paid: number; owed: number }>();
+    for (const e of data.byEmployee) m.set(e.name, { name: e.name, count: e.count, paid: e.total, owed: 0 });
+    for (const o of data.owedByEmployee) {
+      const g = m.get(o.name) ?? { name: o.name, count: 0, paid: 0, owed: 0 };
+      g.owed = o.owed;
+      m.set(o.name, g);
+    }
+    return [...m.values()].sort((a, b) => b.paid + b.owed - (a.paid + a.owed));
+  }, [data]);
+
+  async function exportXlsx() {
+    if (!data) return;
+    try {
+      const XLSX = await import('xlsx');
+      const summary: (string | number)[][] = [
+        ['Davao Talabahan — Employee sales'],
+        ['Period', `${rangeStr.from} to ${rangeStr.to}`],
+        [],
+        ['Employee', 'Paid purchases', 'Paid total', 'Unpaid (owed)'],
+        ...combined.map((e) => [e.name, e.count, e.paid, e.owed]),
+        [],
+        ['Total paid', data.grandCount, data.grandTotal, ''],
+        ['Total owed (unpaid)', '', '', data.grandOwed],
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
+      const tx = data.rows.map((s) => ({
+        'Receipt #': s.id,
+        'Date & time': fmtDT(s.created_at),
+        Employee: s.customer_name || 'Employee',
+        Payment: s.payment_method === 'cash' ? 'Cash' : 'GCash',
+        Subtotal: Number(s.subtotal),
+        Discount: Number(s.discount),
+        Total: Number(s.total),
+        Status: s.refunded ? 'Refunded' : 'Paid',
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(tx.length ? tx : [{ 'Receipt #': '' }]),
+        'Transactions',
+      );
+      if (data.openTabs.length) {
+        const ot = data.openTabs.map((t) => ({
+          Employee: t.name,
+          'Opened': fmtDT(t.opened_at),
+          Items: t.item_count,
+          'Owed (after discount)': t.owed,
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ot), 'Unpaid tabs');
+      }
+      XLSX.writeFile(wb, `davao-talabahan-employee-sales-${rangeStr.from}_to_${rangeStr.to}.xlsx`);
+    } catch {
+      /* export failed — ignore (button is best-effort) */
+    }
+  }
+
   const sel = (active: boolean) => (active ? 'sel' : '');
   return (
     <>
@@ -1021,29 +1080,41 @@ function EmployeeSalesModal({ branchId, onClose }: { branchId?: number; onClose:
 
         {loading ? (
           <div className="centerNote">Loading…</div>
-        ) : !data || data.byEmployee.length === 0 ? (
+        ) : !data || (data.byEmployee.length === 0 && data.openTabs.length === 0) ? (
           <div className="centerNote">No employee purchases for this period.</div>
         ) : (
           <>
-            <div className="totRow grand" style={{ margin: '12px 0 4px' }}>
-              <span>Total employee purchases</span>
-              <span>{peso(data.grandTotal)} ({data.grandCount})</span>
+            <div className="statRow" style={{ padding: '4px 0 0' }}>
+              <div className="stat">
+                <div className="lbl">Paid ({data.grandCount})</div>
+                <div className="val" style={{ color: 'var(--ok)' }}>{peso(data.grandTotal)}</div>
+              </div>
+              <div className="stat">
+                <div className="lbl">Unpaid (owed now)</div>
+                <div className="val" style={{ color: data.grandOwed ? 'var(--danger)' : 'var(--muted)' }}>
+                  {peso(data.grandOwed)}
+                </div>
+              </div>
             </div>
-            <div className="previewWrap" style={{ marginTop: 8 }}>
+            <div className="previewWrap" style={{ marginTop: 10 }}>
               <table>
                 <thead>
                   <tr>
                     <th>Employee</th>
                     <th className="num">Purchases</th>
-                    <th className="num">Total bought</th>
+                    <th className="num">Paid</th>
+                    <th className="num">Unpaid</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.byEmployee.map((e) => (
+                  {combined.map((e) => (
                     <tr key={e.name}>
                       <td><b>{e.name}</b></td>
                       <td className="num">{e.count}</td>
-                      <td className="num"><b>{peso(e.total)}</b></td>
+                      <td className="num"><b>{peso(e.paid)}</b></td>
+                      <td className="num" style={{ color: e.owed ? 'var(--danger)' : 'var(--muted)' }}>
+                        {peso(e.owed)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1051,7 +1122,7 @@ function EmployeeSalesModal({ branchId, onClose }: { branchId?: number; onClose:
             </div>
 
             <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--muted)', margin: '16px 0 6px' }}>
-              Transactions
+              Paid transactions
             </h3>
             <div className="previewWrap">
               <table>
@@ -1083,6 +1154,9 @@ function EmployeeSalesModal({ branchId, onClose }: { branchId?: number; onClose:
         )}
       </div>
       <footer>
+        <button className="btn" disabled={!data} onClick={exportXlsx}>
+          ⬇ Export
+        </button>
         <button className="btn" onClick={onClose}>
           Close
         </button>

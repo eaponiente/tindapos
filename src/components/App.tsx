@@ -343,9 +343,8 @@ function AppShell() {
       )}
       <nav id="rail" style={offline ? { paddingTop: 44 } : undefined}>
         <div className="logo">
-          <span>TALABAHAN</span>
-          <span className="sa">SA</span>
-          <b>CALINAN</b>
+          <span>DAVAO</span>
+          <b>TALABAHAN</b>
         </div>
         {isOwner ? (
           <button className="branchChip" onClick={switchBranchModal} title="Switch branch">

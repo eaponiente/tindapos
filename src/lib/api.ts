@@ -156,6 +156,9 @@ export const api = {
       byEmployee: { name: string; count: number; total: number }[];
       grandTotal: number;
       grandCount: number;
+      openTabs: { session_id: number; name: string; owed: number; item_count: number; opened_at: string }[];
+      owedByEmployee: { name: string; owed: number }[];
+      grandOwed: number;
     }>(`/sales/employee?${b}from=${from}&to=${to}`);
   },
   createSale: (data: SalePayload) =>

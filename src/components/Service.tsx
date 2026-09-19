@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { peso, fmtDT } from '@/lib/format';
 import { useUI } from './UI';
 import Sell, { orderTypeLabel, billText, printThermalText } from './Sell';
+import { EMPLOYEE_DISCOUNT_PCT } from '@/lib/pricing';
 import { groupRounds, openPayBill, openSessionReceipt } from './sessionKit';
 import type {
   Category,
@@ -30,10 +31,6 @@ type Mode =
   | { screen: 'landing' }
   | { screen: 'panel'; session: TableSession }
   | { screen: 'order'; session: TableSession };
-
-// Flat automatic discount applied to every 👤 Employee purchase (per-item
-// Employee prices, when set, override this for that item).
-const EMPLOYEE_DISCOUNT_PCT = 25;
 
 const TYPE_EMOJI: Record<ServiceType, string> = {
   dine_in: '🍽',

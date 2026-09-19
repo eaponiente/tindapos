@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, fail, handler } from '@/lib/server';
+import { staffPrice } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,5 +42,44 @@ export const GET = handler(async (request: NextRequest) => {
   const grandTotal = byEmployee.reduce((a, e) => a + e.total, 0);
   const grandCount = byEmployee.reduce((a, e) => a + e.count, 0);
 
-  return NextResponse.json({ rows, byEmployee, grandTotal, grandCount });
+  // Open (unpaid) employee credit tabs — currently owed, per employee. These
+  // are open sessions (not yet sales); owed = the after-discount amount.
+  let openTabs: { session_id: number; name: string; owed: number; item_count: number; opened_at: string }[] = [];
+  let owedByEmployee: { name: string; owed: number }[] = [];
+  let grandOwed = 0;
+  {
+    let sq = db()
+      .from('table_sessions')
+      .select('id, customer_name, opened_at')
+      .eq('service_type', 'employee')
+      .in('status', ['open', 'for_payment']);
+    if (branchId) sq = sq.eq('branch_id', branchId);
+    const { data: sessions } = await sq;
+    const ids = (sessions ?? []).map((s) => s.id);
+    const regBySession: Record<number, { total: number; count: number }> = {};
+    if (ids.length) {
+      const { data: sItems } = await db()
+        .from('table_session_items')
+        .select('session_id, price, qty')
+        .in('session_id', ids);
+      for (const it of sItems ?? []) {
+        const g = (regBySession[it.session_id] ??= { total: 0, count: 0 });
+        g.total += Number(it.price) * it.qty;
+        g.count += it.qty;
+      }
+    }
+    openTabs = (sessions ?? []).map((s) => ({
+      session_id: s.id,
+      name: s.customer_name || 'Employee',
+      owed: staffPrice(regBySession[s.id]?.total ?? 0),
+      item_count: regBySession[s.id]?.count ?? 0,
+      opened_at: s.opened_at,
+    }));
+    const owedMap = new Map<string, number>();
+    for (const t of openTabs) owedMap.set(t.name, (owedMap.get(t.name) ?? 0) + t.owed);
+    owedByEmployee = [...owedMap.entries()].map(([name, owed]) => ({ name, owed }));
+    grandOwed = openTabs.reduce((a, t) => a + t.owed, 0);
+  }
+
+  return NextResponse.json({ rows, byEmployee, grandTotal, grandCount, openTabs, owedByEmployee, grandOwed });
 });

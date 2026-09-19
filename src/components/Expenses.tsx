@@ -203,7 +203,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const XLSX = await import('xlsx');
       const { from, to } = range();
       const summary: (string | number)[][] = [
-        ['Talabahan sa Calinan — Expenses & Net income'],
+        ['Davao Talabahan — Expenses & Net income'],
         ['Period', `${from} to ${to}`],
         [],
         ['Sales', salesTotal],
