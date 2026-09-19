@@ -265,6 +265,10 @@ export default function History({
     openModal(<BestSellersModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
   }
 
+  function openEmployeeSales() {
+    openModal(<EmployeeSalesModal branchId={scopedBranchId} onClose={closeModal} />, { wide: true });
+  }
+
   function openExport() {
     openModal(
       <ExportModal
@@ -322,6 +326,11 @@ export default function History({
         <button className="btn" onClick={openBestSellers}>
           🏆 Best sellers
         </button>
+        {isOwner && (
+          <button className="btn" onClick={openEmployeeSales}>
+            👤 Employee sales
+          </button>
+        )}
         <button className="btn" onClick={openPreview}>
           👁 Preview
         </button>
@@ -937,6 +946,140 @@ function BestSellersModal({ branchId, onClose }: { branchId?: number; onClose: (
             <span>Total items sold</span>
             <span>{totalUnits}</span>
           </div>
+        )}
+      </div>
+      <footer>
+        <button className="btn" onClick={onClose}>
+          Close
+        </button>
+      </footer>
+    </>
+  );
+}
+
+/** Owner-only tracking of employee purchases: per-employee totals for the
+ *  period plus the individual transactions (order_type='employee' sales). */
+function EmployeeSalesModal({ branchId, onClose }: { branchId?: number; onClose: () => void }) {
+  const isoDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = isoDate(new Date());
+  const [period, setPeriod] = useState<'today' | 'month' | 'all' | 'range'>('month');
+  const [fromStr, setFromStr] = useState(today);
+  const [toStr, setToStr] = useState(today);
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.employeeSales>> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const rangeStr = useMemo(() => {
+    const now = new Date();
+    if (period === 'today') return { from: today, to: today };
+    if (period === 'month') return { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
+    if (period === 'all') return { from: '2000-01-01', to: today };
+    const a = fromStr <= toStr ? fromStr : toStr;
+    const b = fromStr <= toStr ? toStr : fromStr;
+    return { from: a, to: b };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, fromStr, toStr, today]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api
+      .employeeSales(branchId, rangeStr.from, rangeStr.to)
+      .then((d) => !cancelled && setData(d))
+      .catch(() => !cancelled && setData(null))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [branchId, rangeStr]);
+
+  const sel = (active: boolean) => (active ? 'sel' : '');
+  return (
+    <>
+      <header>
+        <h3>👤 Employee sales</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="payBtns" style={{ marginTop: 0, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          <button className={sel(period === 'today')} onClick={() => setPeriod('today')}>Today</button>
+          <button className={sel(period === 'month')} onClick={() => setPeriod('month')}>Month</button>
+          <button className={sel(period === 'all')} onClick={() => setPeriod('all')}>All-time</button>
+          <button className={sel(period === 'range')} onClick={() => setPeriod('range')}>Range</button>
+        </div>
+        {period === 'range' && (
+          <div className="fieldRow" style={{ margin: '10px 0 0' }}>
+            <div className="field">
+              <label>From</label>
+              <input type="date" value={fromStr} max={today} onChange={(e) => e.target.value && setFromStr(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>To</label>
+              <input type="date" value={toStr} min={fromStr} max={today} onChange={(e) => e.target.value && setToStr(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="centerNote">Loading…</div>
+        ) : !data || data.byEmployee.length === 0 ? (
+          <div className="centerNote">No employee purchases for this period.</div>
+        ) : (
+          <>
+            <div className="totRow grand" style={{ margin: '12px 0 4px' }}>
+              <span>Total employee purchases</span>
+              <span>{peso(data.grandTotal)} ({data.grandCount})</span>
+            </div>
+            <div className="previewWrap" style={{ marginTop: 8 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th className="num">Purchases</th>
+                    <th className="num">Total bought</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.byEmployee.map((e) => (
+                    <tr key={e.name}>
+                      <td><b>{e.name}</b></td>
+                      <td className="num">{e.count}</td>
+                      <td className="num"><b>{peso(e.total)}</b></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--muted)', margin: '16px 0 6px' }}>
+              Transactions
+            </h3>
+            <div className="previewWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Receipt</th>
+                    <th>Date &amp; time</th>
+                    <th>Employee</th>
+                    <th>Payment</th>
+                    <th className="num">Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.map((s) => (
+                    <tr key={s.id} className={s.refunded ? 'rfd' : ''}>
+                      <td><b>#{s.id}</b></td>
+                      <td>{fmtDT(s.created_at)}</td>
+                      <td>{s.customer_name || 'Employee'}</td>
+                      <td>{s.payment_method === 'cash' ? 'Cash' : 'GCash'}</td>
+                      <td className="num">{peso(s.total)}</td>
+                      <td>{s.refunded ? 'Refunded' : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
       <footer>

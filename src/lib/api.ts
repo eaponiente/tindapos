@@ -139,6 +139,25 @@ export const api = {
   },
   saleStats: (branchId?: number | null) =>
     request<SaleStats>('/sales/stats' + (branchId ? `?branch_id=${branchId}` : '')),
+  employeeSales: (branchId: number | null | undefined, from: string, to: string) => {
+    const b = branchId ? `branch_id=${branchId}&` : '';
+    return request<{
+      rows: {
+        id: number;
+        created_at: string;
+        customer_name: string | null;
+        employee_name: string | null;
+        subtotal: number;
+        discount: number;
+        total: number;
+        payment_method: string;
+        refunded: boolean;
+      }[];
+      byEmployee: { name: string; count: number; total: number }[];
+      grandTotal: number;
+      grandCount: number;
+    }>(`/sales/employee?${b}from=${from}&to=${to}`);
+  },
   createSale: (data: SalePayload) =>
     request<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) }),
   refundSale: (id: number) => request<Sale>(`/sales/${id}/refund`, { method: 'POST' }),
