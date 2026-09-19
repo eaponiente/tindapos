@@ -656,15 +656,36 @@ function ExpenseModal({
             GCash
           </button>
         </div>
-        <label style={{ fontWeight: 600, fontSize: 14 }}>Money came from</label>
-        <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
-          <button className={source === 'sales' ? 'sel' : ''} onClick={() => setSource('sales')}>
-            💰 Sales
-          </button>
-          <button className={source === 'employee' ? 'sel' : ''} onClick={() => setSource('employee')}>
-            🧑 Employee&apos;s money
-          </button>
-        </div>
+        {editing && initial?.fund_source === 'employee' ? (
+          <>
+            <label style={{ fontWeight: 600, fontSize: 14 }}>🧑 Employee&apos;s money — status</label>
+            <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 8px' }}>
+              <button className={source === 'employee' ? 'sel' : ''} onClick={() => setSource('employee')}>
+                ⏳ Owed
+              </button>
+              <button className={source === 'sales' ? 'sel' : ''} onClick={() => setSource('sales')}>
+                ✅ Reimbursed
+              </button>
+            </div>
+            <p style={{ color: 'var(--muted)', fontSize: 12.5, margin: '0 2px 12px' }}>
+              {source === 'sales'
+                ? 'Reimbursed — moves out of Employee’s money into From sales.'
+                : 'Still owed to the employee. Mark Reimbursed once paid back from sales.'}
+            </p>
+          </>
+        ) : (
+          <>
+            <label style={{ fontWeight: 600, fontSize: 14 }}>Money came from</label>
+            <div className="payBtns" style={{ gridTemplateColumns: '1fr 1fr', margin: '6px 0 12px' }}>
+              <button className={source === 'sales' ? 'sel' : ''} onClick={() => setSource('sales')}>
+                💰 Sales
+              </button>
+              <button className={source === 'employee' ? 'sel' : ''} onClick={() => setSource('employee')}>
+                🧑 Employee&apos;s money
+              </button>
+            </div>
+          </>
+        )}
         <div className="field">
           <label>Note (optional)</label>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. 2 sacks rice, supplier name…" />
