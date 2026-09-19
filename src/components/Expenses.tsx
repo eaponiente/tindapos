@@ -46,6 +46,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
   const [net, setNet] = useState<NetIncome | null>(null);
   const [list, setList] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catFilter, setCatFilter] = useState(''); // '' = all categories; else a category key
 
   const range = useCallback((): { from: string; to: string } => {
     const now = new Date();
@@ -193,6 +194,12 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
   // Sales / net income are owner-only. Net income = Sales − Daily expenses only.
   const salesTotal = Number(net?.sales_total ?? 0);
   const netIncome = salesTotal - expensesTotal;
+  // Entries list, optionally filtered to one category for a focused view.
+  const presentExtraCats = [...new Set(list.map((x) => x.category))].filter(
+    (k) => !CATS.some((c) => c.key === k),
+  );
+  const visibleList = catFilter ? list.filter((x) => x.category === catFilter) : list;
+  const filteredTotal = visibleList.reduce((a, x) => a + Number(x.amount), 0);
 
   function openTrend() {
     openModal(<TrendModal branchId={branchId} onClose={closeModal} />, { wide: true });
@@ -372,10 +379,35 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
 
         {/* Expense entries */}
         <div className="expList">
+          <div className="expListHead">
+            <label>Show</label>
+            <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+              <option value="">All categories</option>
+              {CATS.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+              {presentExtraCats.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+            {catFilter && (
+              <span className="expFilterSum">
+                {visibleList.length} {visibleList.length === 1 ? 'entry' : 'entries'} · {peso(filteredTotal)}
+              </span>
+            )}
+          </div>
           {loading ? (
             <div className="centerNote">Loading…</div>
-          ) : list.length === 0 ? (
-            <div className="centerNote">No expenses for this period yet. Tap “Add expense”.</div>
+          ) : visibleList.length === 0 ? (
+            <div className="centerNote">
+              {list.length === 0
+                ? 'No expenses for this period yet. Tap “Add expense”.'
+                : `No ${catLabel(catFilter)} expenses for this period.`}
+            </div>
           ) : (
             <div className="tableWrap">
               <table>
@@ -393,7 +425,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((x) => (
+                  {visibleList.map((x) => (
                     <tr key={x.id} className={x.scope === 'bank' ? 'bankRow' : ''}>
                       <td>{prettyDate(x.spent_at)}</td>
                       <td>{scopeLabel(x.scope)}</td>
