@@ -209,21 +209,32 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
     try {
       const XLSX = await import('xlsx');
       const { from, to } = range();
+      // Respect the category filter: export only the shown entries when a
+      // specific category is selected.
+      const filtered = catFilter ? catLabel(catFilter) : 'All categories';
       const summary: (string | number)[][] = [
-        ['Davao Talabahan — Expenses & Net income'],
+        ['Davao Talabahan — Expenses'],
         ['Period', `${from} to ${to}`],
+        ['Category', filtered],
         [],
-        ['Sales', salesTotal],
-        ['Daily expenses', expensesTotal],
-        ['Net income', netIncome],
-        ['Bank / GCash (separate)', bankTotal],
-        [],
-        ['Daily by category', ''],
-        ...CATS.map((c) => [c.label, Number(byCat[c.key] ?? 0)]),
-        ...extraCats.map((k) => [k, Number(byCat[k] ?? 0)]),
+        ...(catFilter
+          ? [
+              [catLabel(catFilter) + ' total', filteredTotal],
+              ['Entries', visibleList.length],
+            ]
+          : [
+              ['Sales', salesTotal],
+              ['Daily expenses', expensesTotal],
+              ['Net income', netIncome],
+              ['Bank / GCash (separate)', bankTotal],
+              [],
+              ['Daily by category', ''],
+              ...CATS.map((c) => [c.label, Number(byCat[c.key] ?? 0)]),
+              ...extraCats.map((k) => [k, Number(byCat[k] ?? 0)]),
+            ]),
       ];
       const ws1 = XLSX.utils.aoa_to_sheet(summary);
-      const rows = list.map((x) => ({
+      const rows = visibleList.map((x) => ({
         Date: x.spent_at,
         Type: x.scope === 'bank' ? 'Bank/GCash' : 'Daily',
         Category: catLabel(x.category),
@@ -241,7 +252,8 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws1, 'Summary');
       XLSX.utils.book_append_sheet(wb, ws2, 'Expenses');
-      XLSX.writeFile(wb, `talabahan-expenses-${from}_to_${to}.xlsx`);
+      const catSlug = catFilter ? '-' + catFilter : '';
+      XLSX.writeFile(wb, `davao-talabahan-expenses${catSlug}-${from}_to_${to}.xlsx`);
     } catch {
       toast('Could not export the file');
     }
@@ -269,7 +281,7 @@ export default function Expenses({ employee, branchId, isOwner }: ExpensesProps)
               📈 Trend
             </button>
             <button className="btn" onClick={exportXlsx}>
-              ⬇ Export
+              ⬇ Export{catFilter ? `: ${catLabel(catFilter)}` : ''}
             </button>
           </>
         ) : (
