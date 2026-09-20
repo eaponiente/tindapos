@@ -74,6 +74,7 @@ export default function Service({
   const [tickets, setTickets] = useState<OrderTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>({ screen: 'landing' });
+  const [editTables, setEditTables] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!branchId) return;
@@ -116,6 +117,47 @@ export default function Service({
   }
   async function refreshPanel(sessionId: number) {
     setMode({ screen: 'panel', session: await api.session(sessionId) });
+  }
+
+  // ── Floor layout (owner) ────────────────────────────────────────────────
+  function openAddTable() {
+    const nextNo = floor.reduce((m, t) => Math.max(m, t.table_number), 0) + 1;
+    openModal(
+      <AddTableModal
+        defaultNumber={nextNo}
+        onCancel={closeModal}
+        onConfirm={async ({ table_number, capacity }) => {
+          if (!branchId) return;
+          try {
+            await api.addTable({ branch_id: branchId, table_number, capacity });
+            closeModal();
+            toast(`Table ${table_number} added`);
+            await loadAll();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not add the table');
+          }
+        }}
+      />,
+    );
+  }
+
+  function removeTable(t: FloorTable) {
+    openModal(
+      <ConfirmRemoveTable
+        tableNumber={t.table_number}
+        onCancel={closeModal}
+        onConfirm={async () => {
+          try {
+            await api.removeTable(t.table_id);
+            closeModal();
+            toast(`Table ${t.table_number} removed`);
+            await loadAll();
+          } catch (e) {
+            toast(e instanceof Error ? e.message : 'Could not remove the table');
+          }
+        }}
+      />,
+    );
   }
 
   // ── Start flows ───────────────────────────────────────────────────────────
@@ -611,6 +653,14 @@ export default function Service({
           <span><i className="dot free" /> Available</span>
           <span><i className="dot busy" /> Occupied</span>
         </div>
+        {isOwner && (
+          <button
+            className={'btn' + (editTables ? ' primary' : '')}
+            onClick={() => setEditTables((v) => !v)}
+          >
+            {editTables ? '✓ Done' : '⚙ Edit tables'}
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="centerNote">Loading…</div>
@@ -628,10 +678,14 @@ export default function Service({
                       : 'busy';
               const combined = (t.session_tables_label ?? '').includes('+');
               return (
+                <div key={t.table_id} className="tableCell">
                 <button
-                  key={t.table_id}
-                  className={'tableCard ' + status}
-                  onClick={() => (t.session_id ? openPanel(t.session_id) : chooseTableMode(t))}
+                  className={'tableCard ' + status + (editTables ? ' editing' : '')}
+                  onClick={() => {
+                    if (editTables) return;
+                    if (t.session_id) openPanel(t.session_id);
+                    else chooseTableMode(t);
+                  }}
                 >
                   <div className="tcTop">
                     <span className="tcNum">
@@ -667,8 +721,29 @@ export default function Service({
                     </div>
                   )}
                 </button>
+                {editTables &&
+                  (status === 'free' ? (
+                    <button
+                      className="tableRemove"
+                      title={`Remove Table ${t.table_number}`}
+                      onClick={() => removeTable(t)}
+                    >
+                      ✕
+                    </button>
+                  ) : (
+                    <span className="tableLock" title="Occupied — free it before removing">
+                      🔒
+                    </span>
+                  ))}
+                </div>
               );
             })}
+            {editTables && (
+              <button className="tableCard addTableCard" onClick={openAddTable}>
+                <span className="addTablePlus">＋</span>
+                <span>Add table</span>
+              </button>
+            )}
           </div>
 
           <div className="svcOrdersHead">
@@ -744,6 +819,103 @@ export default function Service({
 }
 
 // ── Modals ───────────────────────────────────────────────────────────────────
+
+function AddTableModal({
+  defaultNumber,
+  onConfirm,
+  onCancel,
+}: {
+  defaultNumber: number;
+  onConfirm: (data: { table_number: number; capacity: number }) => void;
+  onCancel: () => void;
+}) {
+  const [number, setNumber] = useState(String(defaultNumber));
+  const [capacity, setCapacity] = useState(4);
+  const num = Math.round(Number(number));
+  const valid = num >= 1;
+  return (
+    <>
+      <header>
+        <h3>Add a table</h3>
+      </header>
+      <div className="bodyPad">
+        <div className="field">
+          <label>Table number</label>
+          <input
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Seats</label>
+        </div>
+        <div className="paxRow">
+          <button className="paxBtn" onClick={() => setCapacity((c) => Math.max(1, c - 1))}>
+            −
+          </button>
+          <span className="paxNum">{capacity}</span>
+          <button className="paxBtn" onClick={() => setCapacity((c) => Math.min(50, c + 1))}>
+            ＋
+          </button>
+        </div>
+        <div className="paxQuick">
+          {[2, 4, 6, 8, 10, 12].map((n) => (
+            <button key={n} className={n === capacity ? 'sel' : ''} onClick={() => setCapacity(n)}>
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          className="btn primary"
+          disabled={!valid}
+          onClick={() => valid && onConfirm({ table_number: num, capacity })}
+        >
+          Add table
+        </button>
+      </footer>
+    </>
+  );
+}
+
+function ConfirmRemoveTable({
+  tableNumber,
+  onConfirm,
+  onCancel,
+}: {
+  tableNumber: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <header>
+        <h3>Remove Table {tableNumber}?</h3>
+      </header>
+      <div className="bodyPad">
+        <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 14 }}>
+          This removes the table from the floor plan. Past sales keep their record; only an empty
+          table can be removed.
+        </p>
+      </div>
+      <footer>
+        <button className="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn danger" onClick={onConfirm}>
+          Remove table
+        </button>
+      </footer>
+    </>
+  );
+}
 
 function DinerCountModal({
   initial,

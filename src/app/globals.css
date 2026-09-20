@@ -382,6 +382,22 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .tcResv{font-size:17px; font-weight:800; letter-spacing:-.01em; color:#6a45b0;}
 .dot.reserved{background:#8A5CD0;}
 
+/* Edit tables (owner) */
+.tableCell{position:relative; display:flex;}
+.tableCell > .tableCard{flex:1; width:100%;}
+.tableCard.editing{cursor:default; opacity:.92;}
+.tableCard.editing:active{transform:none;}
+.tableRemove{position:absolute; top:-8px; right:-8px; width:28px; height:28px; border-radius:50%;
+  border:1px solid #EAC7C2; background:#fff; color:var(--danger); font-size:14px; font-weight:800;
+  line-height:1; cursor:pointer; box-shadow:var(--shadow); z-index:2; display:flex;
+  align-items:center; justify-content:center;}
+.tableRemove:hover{background:var(--danger); color:#fff; border-color:var(--danger);}
+.tableLock{position:absolute; top:-6px; right:-6px; font-size:15px; z-index:2; opacity:.8;}
+.addTableCard{align-items:center; justify-content:center; gap:6px; border-style:dashed;
+  border-left-style:dashed; color:var(--muted); font-weight:700; min-height:118px;}
+.addTableCard:hover{color:var(--ink); border-color:var(--gold);}
+.addTablePlus{font-size:28px; line-height:1;}
+
 /* Dine-in vs Reservation chooser */
 .startChoice{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .choiceCard{display:flex; flex-direction:column; align-items:center; gap:4px; padding:22px 12px; border-radius:14px;

@@ -172,6 +172,12 @@ export const api = {
 
   // ── Restaurant tables & dine-in sessions ─────────────────────────────────
   floor: (branchId: number) => request<FloorTable[]>(`/tables?branch_id=${branchId}`),
+  addTable: (data: { branch_id: number; table_number?: number; capacity?: number }) =>
+    request<{ id: number; branch_id: number; table_number: number; capacity: number }>('/tables', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  removeTable: (id: number) => request<{ ok: true }>(`/tables/${id}`, { method: 'DELETE' }),
   sessionReserved: (branchId: number) =>
     request<Record<number, number>>(`/tables/reserved?branch_id=${branchId}`),
   session: (id: number) => request<TableSession>(`/tables/sessions/${id}`),
