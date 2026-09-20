@@ -29,6 +29,17 @@ export default function Employees({
   const isSuperAdmin = actorRank >= 3;
   const canEditRow = (emp: Employee) =>
     emp.id === session.id || roleRank(emp.role) < 2 || isSuperAdmin;
+  // Super Admin accounts stay hidden from the Staff list (and timesheet) for
+  // everyone except a Super Admin, so owners never see that one exists.
+  const visibleEmployees = isSuperAdmin
+    ? employees
+    : employees.filter((e) => roleRank(e.role) < 3);
+  const superAdminIds = new Set(
+    employees.filter((e) => roleRank(e.role) >= 3).map((e) => e.id),
+  );
+  const visibleShifts = isSuperAdmin
+    ? shifts
+    : shifts.filter((s) => !superAdminIds.has(s.employee_id));
   const log = (action: string, detail?: string) =>
     api.logActivity({ actor_id: session.id, actor_name: session.name, action, detail });
 
@@ -190,7 +201,7 @@ export default function Employees({
             </tr>
           </thead>
           <tbody>
-            {employees.map((e) => (
+            {visibleEmployees.map((e) => (
               <tr key={e.id}>
                 <td>
                   <b>{e.name}</b>
@@ -230,7 +241,7 @@ export default function Employees({
             </tr>
           </thead>
           <tbody>
-            {shifts.map((s) => {
+            {visibleShifts.map((s) => {
               const hrs = s.clock_out
                 ? ((new Date(s.clock_out).getTime() - new Date(s.clock_in).getTime()) / 3600000).toFixed(2)
                 : null;
