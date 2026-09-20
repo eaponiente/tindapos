@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import { api } from '@/lib/api';
-import { roleRank } from '@/lib/format';
+import { roleRank, roleLabel } from '@/lib/format';
 import type { Branch, Category, Employee, Item } from '@/lib/types';
 import { UIProvider, useUI } from './UI';
 import {
@@ -378,7 +378,7 @@ function AppShell() {
         <div className="spacer"></div>
         <div className="userChip">
           <b>{session.name.split(' ')[0]}</b>
-          <span>{session.role}</span>
+          <span>{roleLabel(session.role)}</span>
         </div>
         <button className="tab" onClick={handleLock}>
           <LockIcon />

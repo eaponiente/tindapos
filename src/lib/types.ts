@@ -1,7 +1,7 @@
 // Shared domain types — the single source of truth for both the route
 // handlers (what they return) and the client components (what they render).
 
-export type Role = 'cashier' | 'manager' | 'owner';
+export type Role = 'cashier' | 'manager' | 'owner' | 'super_admin';
 export type StockStatus = 'ok' | 'low' | 'out';
 export type PaymentMethod = 'cash' | 'card';
 export type AdjustReason = 'receive' | 'recount' | 'damage';

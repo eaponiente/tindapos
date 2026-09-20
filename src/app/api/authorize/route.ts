@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, fail, handler } from '@/lib/server';
+import { roleRank } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export const POST = handler(async (request: NextRequest) => {
     .eq('pin', pin)
     .maybeSingle();
 
-  if (!emp || !['manager', 'owner'].includes(emp.role)) {
+  if (!emp || roleRank(emp.role) < 1) {
     return fail('That PIN is not a manager or owner', 403);
   }
   return NextResponse.json({ ok: true, name: emp.name, role: emp.role });

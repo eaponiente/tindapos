@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, fail, handler } from '@/lib/server';
+import { roleRank } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export const DELETE = handler(async (request: NextRequest) => {
     .select('role')
     .eq('pin', String(pin ?? ''))
     .maybeSingle();
-  if (!emp || emp.role !== 'owner') {
+  if (!emp || roleRank(emp.role) < 2) {
     return fail('An owner PIN is required to clear the log', 403);
   }
 

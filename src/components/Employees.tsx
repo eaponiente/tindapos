@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { peso, fmtDT } from '@/lib/format';
+import { peso, fmtDT, roleRank, roleLabel } from '@/lib/format';
 import { useUI } from './UI';
 import type { Branch, Employee, Role, Shift } from '@/lib/types';
 
@@ -23,6 +23,12 @@ export default function Employees({
 }: EmployeesProps) {
   const { toast, openModal, closeModal } = useUI();
   const [shifts, setShifts] = useState<Shift[]>([]);
+  // Only a Super Admin may create, edit, or remove owner-level accounts, so
+  // owners can run their branches without being able to touch each other or you.
+  const actorRank = roleRank(session.role);
+  const isSuperAdmin = actorRank >= 3;
+  const canEditRow = (emp: Employee) =>
+    emp.id === session.id || roleRank(emp.role) < 2 || isSuperAdmin;
   const log = (action: string, detail?: string) =>
     api.logActivity({ actor_id: session.id, actor_name: session.name, action, detail });
 
@@ -40,13 +46,16 @@ export default function Employees({
       branch_id: emp?.branch_id ?? (isOwner ? null : session.branch_id ?? null),
     };
     let error = '';
-    // Managers may not view an owner's or another manager's PIN — only the owner,
-    // the employee's own PIN, new hires, or their own cashiers' PINs are visible.
-    const canSeePin =
-      isNew || isOwner || emp!.id === session.id || emp!.role === 'cashier';
-    // You can never remove yourself, and a manager may not remove an owner.
+    const targetRank = isNew ? -1 : roleRank(emp!.role);
+    // You can only see a PIN for yourself, a new hire, or someone ranked below
+    // you (so an owner can't read another owner's or the Super Admin's PIN).
+    const canSeePin = isNew || emp!.id === session.id || actorRank > targetRank;
+    // You can never remove yourself; removing an owner/Super Admin needs Super
+    // Admin, and otherwise the existing manager/owner rules apply.
     const canRemove =
-      !isNew && emp!.id !== session.id && (isOwner || emp!.role !== 'owner');
+      !isNew &&
+      emp!.id !== session.id &&
+      (targetRank >= 2 ? isSuperAdmin : isOwner || emp!.role !== 'owner');
 
     const render = () => {
       openModal(
@@ -65,7 +74,8 @@ export default function Employees({
                 <select defaultValue={state.role} onChange={(e) => (state.role = e.target.value as Role)}>
                   <option value="cashier">Cashier — sell &amp; history only</option>
                   <option value="manager">Manager — + inventory &amp; staff</option>
-                  {isOwner && <option value="owner">Owner — full access</option>}
+                  {isSuperAdmin && <option value="owner">Owner — full access</option>}
+                  {isSuperAdmin && <option value="super_admin">Super Admin — full access + owners</option>}
                 </select>
               </div>
               <div className="field">
@@ -186,7 +196,7 @@ export default function Employees({
                   <b>{e.name}</b>
                 </td>
                 <td>
-                  <span className="pill role">{e.role}</span>
+                  <span className="pill role">{roleLabel(e.role)}</span>
                 </td>
                 <td>{e.branch_name || <span style={{ color: 'var(--muted)' }}>All</span>}</td>
                 <td style={{ letterSpacing: '.2em' }}>••••</td>
@@ -194,9 +204,15 @@ export default function Employees({
                 <td className="num">{e.receipts_count || 0}</td>
                 <td>{e.last_clock_in ? fmtDT(e.last_clock_in) : '—'}</td>
                 <td>
-                  <button className="btn small" onClick={() => empModal(e)}>
-                    Edit
-                  </button>
+                  {canEditRow(e) ? (
+                    <button className="btn small" onClick={() => empModal(e)}>
+                      Edit
+                    </button>
+                  ) : (
+                    <span className="pill" title="Only a Super Admin can edit an owner account">
+                      🔒 Locked
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

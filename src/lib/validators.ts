@@ -1,7 +1,7 @@
 // Request validation shared by route handlers (route.ts files may only
 // export HTTP methods, so helpers like these live here).
 
-const ROLES = ['cashier', 'manager', 'owner'];
+const ROLES = ['cashier', 'manager', 'owner', 'super_admin'];
 const REASONS = ['receive', 'recount', 'damage'];
 
 export function validateEmployee(body: Record<string, unknown>): string | null {
