@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
-import { peso, fmtDT } from '@/lib/format';
+import { peso, fmtDT, roleRank } from '@/lib/format';
 import { useUI } from './UI';
 import { printHtml, printThermal, receiptText, orderTypeLabel } from './Sell';
 import type { Branch, Employee, Sale, SaleStats, SalesPage } from '@/lib/types';
@@ -32,6 +32,7 @@ export default function History({
   const [stats, setStats] = useState<SaleStats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const isSuperAdmin = roleRank(session.role) >= 3;
   // A manager/cashier is locked to their branch; the owner picks via the filter.
   const scopedBranchId = isOwner ? (branchFilter ? Number(branchFilter) : undefined) : branchId ?? undefined;
   const showBranchColumn = isOwner;
@@ -90,6 +91,11 @@ export default function History({
           {!sale.refunded && (
             <button className="btn danger" onClick={() => confirmRefund(sale)}>
               Refund
+            </button>
+          )}
+          {isSuperAdmin && (
+            <button className="btn danger" onClick={() => confirmDelete(sale)}>
+              🗑 Delete
             </button>
           )}
           <button
@@ -160,6 +166,63 @@ export default function History({
               }}
             >
               Confirm refund
+            </button>
+          </footer>
+        </>,
+      );
+    };
+    render();
+  }
+
+  // Super-Admin-only permanent removal of a receipt. Requires a Super Admin PIN
+  // (verified server-side). Stock is not touched — refund first if the items
+  // should return to inventory.
+  function confirmDelete(sale: Sale) {
+    let pin = '';
+    let error = '';
+    const render = () => {
+      openModal(
+        <>
+          <header>
+            <h3>Delete receipt #{sale.id}?</h3>
+          </header>
+          <div className="bodyPad">
+            <p style={{ marginTop: 0 }}>
+              This <b>permanently removes</b> the {peso(sale.total)} receipt from history. This
+              can&apos;t be undone. Stock is not changed — refund it first if the items should go
+              back to inventory.
+            </p>
+            <div className="field">
+              <label>Super Admin PIN required</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                onChange={(e) => (pin = e.target.value)}
+              />
+            </div>
+            {error && <div className="errText">{error}</div>}
+          </div>
+          <footer>
+            <button className="btn" onClick={() => openReceipt(sale)}>
+              Cancel
+            </button>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                try {
+                  await api.deleteSale(sale.id, pin); // server rejects a non-super-admin PIN
+                  closeModal();
+                  toast(`Receipt #${sale.id} deleted`);
+                  load();
+                } catch (e) {
+                  error = e instanceof Error ? e.message : 'Something went wrong';
+                  render();
+                }
+              }}
+            >
+              Delete permanently
             </button>
           </footer>
         </>,

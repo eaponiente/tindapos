@@ -164,6 +164,8 @@ export const api = {
   createSale: (data: SalePayload) =>
     request<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) }),
   refundSale: (id: number) => request<Sale>(`/sales/${id}/refund`, { method: 'POST' }),
+  deleteSale: (id: number, pin: string) =>
+    request<{ ok: true }>(`/sales/${id}`, { method: 'DELETE', body: JSON.stringify({ pin }) }),
   updateSalePayment: (id: number, payment_method: PaymentMethod) =>
     request<Sale>(`/sales/${id}`, {
       method: 'PATCH',

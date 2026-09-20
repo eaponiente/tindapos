@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, fail, handler } from '@/lib/server';
+import { roleRank } from '@/lib/format';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,4 +46,25 @@ export const PATCH = handler(async (request: NextRequest, { params }: Ctx) => {
 
   const { data } = await db().from('sales').select(SALE_SELECT).eq('id', id).single();
   return NextResponse.json(data);
+});
+
+/** Permanently delete a receipt (its line items cascade). Restricted to a Super
+ *  Admin — a valid Super Admin PIN must be supplied. Stock is left untouched;
+ *  refund first if the items should return to inventory. */
+export const DELETE = handler(async (request: NextRequest, { params }: Ctx) => {
+  const { id } = await params;
+  const { pin } = await request.json().catch(() => ({ pin: '' }));
+
+  const { data: emp } = await db()
+    .from('employees')
+    .select('role')
+    .eq('pin', String(pin ?? ''))
+    .maybeSingle();
+  if (!emp || roleRank(emp.role) < 3) {
+    return fail('A Super Admin PIN is required to delete a receipt', 403);
+  }
+
+  const { error } = await db().from('sales').delete().eq('id', id);
+  if (error) return fail(error.message);
+  return NextResponse.json({ ok: true });
 });
