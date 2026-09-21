@@ -88,6 +88,9 @@ export interface Sale {
   order_type?: string | null; // 'dine_in' | 'take_out' | 'delivery' | 'pick_up' | null
   table_label?: string | null; // e.g. "3 + 4" for dine-in
   customer_name?: string | null;
+  senior_id_no?: string | null; // Senior/PWD discount: ID number, name, DOB
+  senior_name?: string | null;
+  senior_dob?: string | null;
   employee?: { id: number; name: string } | null;
   items: SaleLine[];
 }

@@ -7,6 +7,17 @@ const PER_PAGE = 50;
 const SALE_SELECT =
   '*, employee:employees(id, name), branch:branches(id, name), items:sale_items(*)';
 
+/** Save Senior/PWD logbook details onto a just-created sale, if supplied.
+ *  Resilient: a DB without the columns yet (00023 not run) just no-ops. */
+async function persistSeniorInfo(saleId: number, body: Record<string, unknown>) {
+  const patch: Record<string, string> = {};
+  if (body.senior_id_no) patch.senior_id_no = String(body.senior_id_no);
+  if (body.senior_name) patch.senior_name = String(body.senior_name);
+  if (body.senior_dob) patch.senior_dob = String(body.senior_dob);
+  if (Object.keys(patch).length === 0) return;
+  await db().from('sales').update(patch).eq('id', saleId); // ignore error if columns absent
+}
+
 /** Unlimited sales history — paginated so the API stays fast no matter how many years of receipts pile up. */
 export const GET = handler(async (request: NextRequest) => {
   const sp = request.nextUrl.searchParams;
@@ -114,6 +125,8 @@ export const POST = handler(async (request: NextRequest) => {
   }
 
   if (key) await db().from('sale_idempotency').update({ sale_id: saleId }).eq('key', key);
+
+  await persistSeniorInfo(saleId, body);
 
   const { data: sale } = await db().from('sales').select(SALE_SELECT).eq('id', saleId).single();
   return NextResponse.json(sale, { status: 201 });

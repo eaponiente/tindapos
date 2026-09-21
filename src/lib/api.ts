@@ -50,6 +50,9 @@ export interface SalePayload {
   tendered: number;
   lines: { item_id: number; qty: number }[];
   idempotency_key?: string; // dedupes double-taps / retries on slow connections
+  senior_id_no?: string; // Senior/PWD discount logbook details
+  senior_name?: string;
+  senior_dob?: string;
 }
 
 /** Appends the branch filter to a query string when a branch is given. */
@@ -223,7 +226,15 @@ export const api = {
     }),
   closeSession: (
     id: number,
-    data: { payment_method: PaymentMethod; tendered: number; discount_pct: number; employee_id: number },
+    data: {
+      payment_method: PaymentMethod;
+      tendered: number;
+      discount_pct: number;
+      employee_id: number;
+      senior_id_no?: string;
+      senior_name?: string;
+      senior_dob?: string;
+    },
   ) => request<Sale>(`/tables/sessions/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
   voidSession: (id: number, employee_id: number) =>
     request<{ ok: true }>(`/tables/sessions/${id}/void`, {

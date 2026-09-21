@@ -8,7 +8,7 @@
 import React from 'react';
 import { api } from '@/lib/api';
 import { peso } from '@/lib/format';
-import { PaymentModal, DiscountModal, receiptText, printThermal } from './Sell';
+import { PaymentModal, DiscountModal, receiptText, printThermal, type SeniorDiscountInfo } from './Sell';
 import type { PaymentMethod, Sale, TableSession } from '@/lib/types';
 
 export type SessionUI = {
@@ -55,6 +55,7 @@ export function openPayBill(
   }
   let pct = opts.initialDiscount?.pct ?? 0;
   let label = opts.initialDiscount?.label ?? '';
+  let senior: SeniorDiscountInfo | null = null; // Senior/PWD logbook details
 
   const openBill = () => {
     const discount = round2((session.total * pct) / 100);
@@ -69,6 +70,7 @@ export function openPayBill(
         onClearDiscount={() => {
           pct = 0;
           label = '';
+          senior = null;
           openBill();
         }}
         onProceed={openPay}
@@ -81,9 +83,10 @@ export function openPayBill(
     ui.openModal(
       <DiscountModal
         subtotal={session.total}
-        onApply={(p, l) => {
+        onApply={(p, l, s) => {
           pct = p;
           label = l;
+          senior = s ?? null;
           openBill();
         }}
         onCancel={openBill}
@@ -119,6 +122,9 @@ export function openPayBill(
                 tendered: method === 'cash' ? tendered : dueTotal,
                 discount_pct: pct,
                 employee_id: employeeId,
+                ...(senior
+                  ? { senior_id_no: senior.id_no, senior_name: senior.name, senior_dob: senior.dob }
+                  : {}),
               });
               await reloadItems();
               onPaid(sale);

@@ -46,6 +46,7 @@ export default function Sell({
   const [ticket, setTicket] = useState<TicketLine[]>([]);
   const [discountPct, setDiscountPct] = useState(0);
   const [discountLabel, setDiscountLabel] = useState('');
+  const [discountInfo, setDiscountInfo] = useState<SeniorDiscountInfo | null>(null);
   const [placing, setPlacing] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
   const [simple, setSimple] = useState(false); // hide photos for faster tapping
@@ -209,9 +210,10 @@ export default function Sell({
     openModal(
       <DiscountModal
         subtotal={subtotal}
-        onApply={(pct, label) => {
+        onApply={(pct, label, senior) => {
           setDiscountPct(pct);
           setDiscountLabel(label);
+          setDiscountInfo(senior ?? null);
           closeModal();
         }}
         onCancel={closeModal}
@@ -270,10 +272,18 @@ export default function Sell({
         tendered: method === 'cash' ? tendered : total,
         lines: ticket.map((l) => ({ item_id: l.item.id, qty: l.qty })),
         idempotency_key: idempotencyKey,
+        ...(discountInfo
+          ? {
+              senior_id_no: discountInfo.id_no,
+              senior_name: discountInfo.name,
+              senior_dob: discountInfo.dob,
+            }
+          : {}),
       });
       setTicket([]);
       setDiscountPct(0);
       setDiscountLabel('');
+      setDiscountInfo(null);
       setTicketOpen(false);
       await reloadItems();
       showReceipt(sale);
@@ -298,6 +308,7 @@ export default function Sell({
       setTicket([]);
       setDiscountPct(0);
       setDiscountLabel('');
+      setDiscountInfo(null);
       toast('Order added');
       session.onAdded();
     } catch (e) {
@@ -553,6 +564,7 @@ export default function Sell({
                   setTicket([]);
                   setDiscountPct(0);
                   setDiscountLabel('');
+                  setDiscountInfo(null);
                 }}
               >
                 Clear
@@ -613,6 +625,14 @@ export function receiptText(sale: Sale): string {
     s +=
       `Discount ${sale.discount_pct}%`.padEnd(22) + ('-' + peso(sale.discount)).padStart(10) + '\n';
   s += 'TOTAL'.padEnd(22) + peso(sale.total).padStart(10) + '\n';
+  if (sale.senior_id_no || sale.senior_name || sale.senior_dob) {
+    s += '--------------------------------\n';
+    s += 'Senior/PWD\n';
+    if (sale.senior_name) s += `Name: ${sale.senior_name}\n`;
+    if (sale.senior_id_no) s += `ID No: ${sale.senior_id_no}\n`;
+    if (sale.senior_dob) s += `DOB: ${sale.senior_dob}\n`;
+    s += 'Signature: ______________\n';
+  }
   s +=
     (sale.payment_method === 'cash' ? 'Cash' : 'GCash').padEnd(22) +
     peso(sale.tendered).padStart(10) +
@@ -764,9 +784,16 @@ export interface PaymentModalProps {
   onCancel: () => void;
 }
 
+/** Senior/PWD logbook details captured with the discount (BIR requirement). */
+export interface SeniorDiscountInfo {
+  id_no: string;
+  name: string;
+  dob: string;
+}
+
 interface DiscountModalProps {
   subtotal: number;
-  onApply: (pct: number, label: string) => void;
+  onApply: (pct: number, label: string, senior?: SeniorDiscountInfo | null) => void;
   onCancel: () => void;
 }
 
@@ -780,6 +807,10 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
   const [vatExempt, setVatExempt] = useState(false);
   const [mgrKind, setMgrKind] = useState<'pct' | 'amount'>('pct');
   const [mgrValue, setMgrValue] = useState('');
+  // Senior/PWD logbook details (BIR requires the ID number and name on record).
+  const [idNo, setIdNo] = useState('');
+  const [idName, setIdName] = useState('');
+  const [idDob, setIdDob] = useState('');
 
   const D = Math.max(1, parseInt(diners, 10) || 1);
   const K = Math.min(D, Math.max(0, parseInt(seniors, 10) || 0));
@@ -798,6 +829,8 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
   }
   amount = Math.min(Math.max(0, amount), subtotal);
   const pct = subtotal > 0 ? (amount / subtotal) * 100 : 0;
+  // For a Senior/PWD discount the ID number and name are required for the record.
+  const seniorMissing = mode === 'senior' && amount > 0 && (!idNo.trim() || !idName.trim());
 
   return (
     <>
@@ -856,6 +889,32 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
               />
               VAT-registered — also apply 12% VAT exemption
             </label>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>Senior / PWD ID number</label>
+              <input
+                value={idNo}
+                onChange={(e) => setIdNo(e.target.value)}
+                placeholder="ID number on the card"
+              />
+            </div>
+            <div className="fieldRow">
+              <div className="field">
+                <label>Name</label>
+                <input
+                  value={idName}
+                  onChange={(e) => setIdName(e.target.value)}
+                  placeholder="Full name"
+                />
+              </div>
+              <div className="field">
+                <label>Date of birth</label>
+                <input
+                  value={idDob}
+                  onChange={(e) => setIdDob(e.target.value)}
+                  placeholder="e.g. Jan 5, 1955"
+                />
+              </div>
+            </div>
             <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '8px 0 0' }}>
               Only the {K} senior/PWD share{K === 1 ? '' : 's'} of the bill get the discount — the
               other {Math.max(0, D - K)} diner{D - K === 1 ? '' : 's'} pay full price.
@@ -898,10 +957,27 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
         </div>
       </div>
       <footer>
+        {seniorMissing && (
+          <span style={{ fontSize: 12.5, color: 'var(--muted)', alignSelf: 'center', marginRight: 'auto' }}>
+            Enter the ID number and name
+          </span>
+        )}
         <button className="btn" onClick={onCancel}>
           Cancel
         </button>
-        <button className="btn primary" onClick={() => onApply(pct, amount > 0 ? label : '')}>
+        <button
+          className="btn primary"
+          disabled={seniorMissing}
+          onClick={() =>
+            onApply(
+              pct,
+              amount > 0 ? label : '',
+              mode === 'senior' && amount > 0
+                ? { id_no: idNo.trim(), name: idName.trim(), dob: idDob.trim() }
+                : null,
+            )
+          }
+        >
           Apply discount
         </button>
       </footer>

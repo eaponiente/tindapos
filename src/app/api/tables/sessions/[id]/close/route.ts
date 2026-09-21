@@ -28,6 +28,14 @@ export const POST = handler(async (request: NextRequest, { params }: Ctx) => {
   });
   if (error) return fail(error.message);
 
+  // Save Senior/PWD logbook details if supplied (resilient: no-op if the
+  // columns aren't there yet on an older DB).
+  const senior: Record<string, string> = {};
+  if (body.senior_id_no) senior.senior_id_no = String(body.senior_id_no);
+  if (body.senior_name) senior.senior_name = String(body.senior_name);
+  if (body.senior_dob) senior.senior_dob = String(body.senior_dob);
+  if (Object.keys(senior).length) await db().from('sales').update(senior).eq('id', saleId);
+
   const { data: sale } = await db().from('sales').select(SALE_SELECT).eq('id', saleId).single();
   return NextResponse.json(sale, { status: 201 });
 });
