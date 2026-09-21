@@ -626,12 +626,19 @@ export function receiptText(sale: Sale): string {
       `Discount ${sale.discount_pct}%`.padEnd(22) + ('-' + peso(sale.discount)).padStart(10) + '\n';
   s += 'TOTAL'.padEnd(22) + peso(sale.total).padStart(10) + '\n';
   if (sale.senior_id_no || sale.senior_name || sale.senior_dob) {
+    const names = (sale.senior_name ?? '').split('\n');
+    const ids = (sale.senior_id_no ?? '').split('\n');
+    const dobs = (sale.senior_dob ?? '').split('\n');
+    const n = Math.max(names.length, ids.length, dobs.length);
     s += '--------------------------------\n';
-    s += 'Senior/PWD\n';
-    if (sale.senior_name) s += `Name: ${sale.senior_name}\n`;
-    if (sale.senior_id_no) s += `ID No: ${sale.senior_id_no}\n`;
-    if (sale.senior_dob) s += `DOB: ${sale.senior_dob}\n`;
-    s += 'Signature: ______________\n';
+    s += n > 1 ? `Senior/PWD (${n})\n` : 'Senior/PWD\n';
+    for (let i = 0; i < n; i++) {
+      if (n > 1) s += `#${i + 1}\n`;
+      if (names[i]) s += `Name: ${names[i]}\n`;
+      if (ids[i]) s += `ID No: ${ids[i]}\n`;
+      if (dobs[i]) s += `DOB: ${dobs[i]}\n`;
+      s += 'Signature: ______________\n';
+    }
   }
   s +=
     (sale.payment_method === 'cash' ? 'Cash' : 'GCash').padEnd(22) +
@@ -807,10 +814,9 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
   const [vatExempt, setVatExempt] = useState(false);
   const [mgrKind, setMgrKind] = useState<'pct' | 'amount'>('pct');
   const [mgrValue, setMgrValue] = useState('');
-  // Senior/PWD logbook details (BIR requires the ID number and name on record).
-  const [idNo, setIdNo] = useState('');
-  const [idName, setIdName] = useState('');
-  const [idDob, setIdDob] = useState('');
+  // Senior/PWD logbook details (BIR requires each ID number and name on record).
+  // One entry per senior/PWD availing the discount.
+  const [entries, setEntries] = useState<SeniorDiscountInfo[]>([{ id_no: '', name: '', dob: '' }]);
 
   const D = Math.max(1, parseInt(diners, 10) || 1);
   const K = Math.min(D, Math.max(0, parseInt(seniors, 10) || 0));
@@ -829,8 +835,26 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
   }
   amount = Math.min(Math.max(0, amount), subtotal);
   const pct = subtotal > 0 ? (amount / subtotal) * 100 : 0;
-  // For a Senior/PWD discount the ID number and name are required for the record.
-  const seniorMissing = mode === 'senior' && amount > 0 && (!idNo.trim() || !idName.trim());
+
+  // Keep one ID/Name/DOB entry per senior/PWD getting the discount (K of them).
+  useEffect(() => {
+    setEntries((prev) => {
+      const want = Math.max(1, K);
+      if (prev.length === want) return prev;
+      const next = prev.slice(0, want);
+      while (next.length < want) next.push({ id_no: '', name: '', dob: '' });
+      return next;
+    });
+  }, [K]);
+  const updateEntry = (i: number, field: keyof SeniorDiscountInfo, value: string) =>
+    setEntries((prev) => prev.map((e, j) => (j === i ? { ...e, [field]: value } : e)));
+
+  const activeEntries = entries.slice(0, Math.max(1, K));
+  // For a Senior/PWD discount every ID number and name is required for the record.
+  const seniorMissing =
+    mode === 'senior' &&
+    amount > 0 &&
+    activeEntries.some((e) => !e.id_no.trim() || !e.name.trim());
 
   return (
     <>
@@ -889,33 +913,46 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
               />
               VAT-registered — also apply 12% VAT exemption
             </label>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>Senior / PWD ID number</label>
-              <input
-                value={idNo}
-                onChange={(e) => setIdNo(e.target.value)}
-                placeholder="ID number on the card"
-              />
-            </div>
-            <div className="fieldRow">
-              <div className="field">
-                <label>Name</label>
-                <input
-                  value={idName}
-                  onChange={(e) => setIdName(e.target.value)}
-                  placeholder="Full name"
-                />
+            {activeEntries.map((entry, i) => (
+              <div
+                key={i}
+                style={{
+                  marginTop: 12,
+                  paddingTop: activeEntries.length > 1 ? 10 : 0,
+                  borderTop: activeEntries.length > 1 && i > 0 ? '1px solid var(--line)' : 'none',
+                }}
+              >
+                <div className="field">
+                  <label>
+                    {activeEntries.length > 1 ? `Senior / PWD #${i + 1} — ID number` : 'Senior / PWD ID number'}
+                  </label>
+                  <input
+                    value={entry.id_no}
+                    onChange={(e) => updateEntry(i, 'id_no', e.target.value)}
+                    placeholder="ID number on the card"
+                  />
+                </div>
+                <div className="fieldRow">
+                  <div className="field">
+                    <label>Name</label>
+                    <input
+                      value={entry.name}
+                      onChange={(e) => updateEntry(i, 'name', e.target.value)}
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Date of birth</label>
+                    <input
+                      value={entry.dob}
+                      onChange={(e) => updateEntry(i, 'dob', e.target.value)}
+                      placeholder="e.g. Jan 5, 1955"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="field">
-                <label>Date of birth</label>
-                <input
-                  value={idDob}
-                  onChange={(e) => setIdDob(e.target.value)}
-                  placeholder="e.g. Jan 5, 1955"
-                />
-              </div>
-            </div>
-            <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '8px 0 0' }}>
+            ))}
+            <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '10px 0 0' }}>
               Only the {K} senior/PWD share{K === 1 ? '' : 's'} of the bill get the discount — the
               other {Math.max(0, D - K)} diner{D - K === 1 ? '' : 's'} pay full price.
             </p>
@@ -973,7 +1010,11 @@ export function DiscountModal({ subtotal, onApply, onCancel }: DiscountModalProp
               pct,
               amount > 0 ? label : '',
               mode === 'senior' && amount > 0
-                ? { id_no: idNo.trim(), name: idName.trim(), dob: idDob.trim() }
+                ? {
+                    id_no: activeEntries.map((e) => e.id_no.trim()).join('\n'),
+                    name: activeEntries.map((e) => e.name.trim()).join('\n'),
+                    dob: activeEntries.map((e) => e.dob.trim()).join('\n'),
+                  }
                 : null,
             )
           }
