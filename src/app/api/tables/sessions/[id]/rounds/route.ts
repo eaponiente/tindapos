@@ -21,5 +21,9 @@ export const POST = handler(async (request: NextRequest, { params }: Ctx) => {
   });
   if (error) return fail(error.message);
 
+  // A new round means new food to cook — put the table back on the Kitchen board
+  // if it had been marked complete. (No-op before migration 00024.)
+  await db().from('table_sessions').update({ kitchen_done_at: null }).eq('id', Number(id));
+
   return NextResponse.json(await fetchSessionDetail(Number(id)));
 });

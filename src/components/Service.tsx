@@ -25,6 +25,7 @@ interface ServiceProps {
   employees: Employee[];
   reloadItems: () => Promise<void>;
   isOwner: boolean;
+  canPay?: boolean; // false for waiters — payment & void are hidden
 }
 
 type Mode =
@@ -67,6 +68,7 @@ export default function Service({
   employees,
   reloadItems,
   isOwner,
+  canPay = true,
 }: ServiceProps) {
   const { toast, openModal, closeModal } = useUI();
   const ui = { openModal, closeModal, toast };
@@ -556,6 +558,13 @@ export default function Service({
                     <div className="roundLine" key={l.id}>
                       <span className="q">{l.qty}×</span>
                       <span className="nm">{l.name}</span>
+                      {l.kitchen_status === 'done' ? (
+                        <span className="kStat done">✓ Done</span>
+                      ) : l.kitchen_status === 'preparing' ? (
+                        <span className="kStat prep">Preparing</span>
+                      ) : (
+                        <span className="kStat pending">Pending</span>
+                      )}
                       <span className="amt">{peso(Number(l.price) * l.qty)}</span>
                       <span className="lineEdit">
                         <button onClick={() => editItem(s.id, l.id, l.qty - 1)} aria-label="Reduce quantity">
@@ -602,9 +611,11 @@ export default function Service({
             <button className="tblAction" onClick={() => printBill(s)}>
               🧾 Print bill
             </button>
-            <button className="tblAction pay" onClick={() => payBill(s)}>
-              💵 Pay bill
-            </button>
+            {canPay && (
+              <button className="tblAction pay" onClick={() => payBill(s)}>
+                💵 Pay bill
+              </button>
+            )}
             <div className="tblActionGrid">
               {dine ? (
                 <>
@@ -625,9 +636,11 @@ export default function Service({
                   </button>
                 )
               )}
-              <button className="tblAction danger" onClick={() => cancelSession(s)}>
-                ✕ {dine ? 'Cancel session' : 'Cancel order'}
-              </button>
+              {canPay && (
+                <button className="tblAction danger" onClick={() => cancelSession(s)}>
+                  ✕ {dine ? 'Cancel session' : 'Cancel order'}
+                </button>
+              )}
             </div>
           </aside>
         </div>

@@ -84,6 +84,8 @@ export default function Employees({
                 <label>Role</label>
                 <select defaultValue={state.role} onChange={(e) => (state.role = e.target.value as Role)}>
                   <option value="cashier">Cashier — sell &amp; history only</option>
+                  <option value="waiter">Waiter — take orders, no payment</option>
+                  <option value="kitchen">Kitchen — kitchen dashboard only</option>
                   <option value="manager">Manager — + inventory &amp; staff</option>
                   {isSuperAdmin && <option value="owner">Owner — full access</option>}
                   {isSuperAdmin && <option value="super_admin">Super Admin — full access + owners</option>}

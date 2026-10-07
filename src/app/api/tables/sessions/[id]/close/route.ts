@@ -16,6 +16,12 @@ export const POST = handler(async (request: NextRequest, { params }: Ctx) => {
   const body = await request.json();
   if (!body.employee_id) return fail('employee_id is required');
   if (!['cash', 'card'].includes(body.payment_method)) return fail('Invalid payment method');
+
+  // Waiters and Kitchen staff may never take payment, even via a direct call.
+  const { data: actor } = await db().from('employees').select('role').eq('id', body.employee_id).maybeSingle();
+  if (actor && ['waiter', 'kitchen'].includes(actor.role)) {
+    return fail('Your role cannot process payments.', 403);
+  }
   const discountPct = Number(body.discount_pct) || 0;
   if (discountPct < 0 || discountPct > 100) return fail('Discount must be between 0 and 100');
 

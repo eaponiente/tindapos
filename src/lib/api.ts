@@ -10,6 +10,8 @@ import type {
   FloorTable,
   Item,
   ItemStats,
+  KitchenOrder,
+  KitchenStatus,
   NetIncome,
   PaymentMethod,
   OrderTicket,
@@ -258,6 +260,16 @@ export const api = {
     request<TableSession>(`/tables/sessions/${id}/seat`, {
       method: 'POST',
       body: JSON.stringify({ table_ids, employee_id }),
+    }),
+
+  // ── Kitchen dashboard ────────────────────────────────────────────────────
+  kitchen: (branchId: number) => request<KitchenOrder[]>(`/kitchen?branch_id=${branchId}`),
+  setKitchenItem: (item_id: number, status: KitchenStatus) =>
+    request<{ ok: true }>('/kitchen/item', { method: 'POST', body: JSON.stringify({ item_id, status }) }),
+  kitchenComplete: (session_id: number, employee_id: number) =>
+    request<{ ok: true }>('/kitchen/complete', {
+      method: 'POST',
+      body: JSON.stringify({ session_id, employee_id }),
     }),
 
   // ── Expenses & net income ────────────────────────────────────────────────

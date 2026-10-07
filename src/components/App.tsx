@@ -12,6 +12,7 @@ import {
   ExpensesIcon,
   HistoryIcon,
   ItemsIcon,
+  KitchenIcon,
   LockIcon,
   MenuIcon,
   StaffIcon,
@@ -19,6 +20,7 @@ import {
 } from './Icons';
 import LockScreen from './LockScreen';
 import Service from './Service';
+import Kitchen from './Kitchen';
 import History from './History';
 import Inventory from './Inventory';
 import Employees from './Employees';
@@ -30,6 +32,7 @@ import AssistiveTouch from './AssistiveTouch';
 
 type Screen =
   | 'service'
+  | 'kitchen'
   | 'history'
   | 'inventory'
   | 'categories'
@@ -61,6 +64,7 @@ function initialBranch(emp: Employee): number | null {
 
 const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] = [
   { key: 'service', label: 'Service', perm: 0, icon: TablesIcon },
+  { key: 'kitchen', label: 'Kitchen', perm: 2, icon: KitchenIcon },
   { key: 'history', label: 'History', perm: 0, icon: HistoryIcon },
   { key: 'inventory', label: 'Items', perm: 1, icon: ItemsIcon },
   { key: 'categories', label: 'Categories', perm: 1, icon: CategoriesIcon },
@@ -69,6 +73,23 @@ const TABS: { key: Screen; label: string; perm: number; icon: ComponentType }[] 
   { key: 'expenses', label: 'Expenses', perm: 1, icon: ExpensesIcon },
   { key: 'activity', label: 'Activity', perm: 2, icon: ActivityIcon },
 ];
+
+// Waiter and Kitchen sit outside the rank ladder, so screen access is explicit:
+//  • waiter  → only the Service floor (take orders, no payment/reports).
+//  • kitchen → only the Kitchen Dashboard.
+//  • everyone else → the classic rank-based tabs; Kitchen is visible to owners/
+//    admins (rank ≥ 2) for oversight.
+function allowedTab(role: string, key: Screen): boolean {
+  if (role === 'waiter') return key === 'service';
+  if (role === 'kitchen') return key === 'kitchen';
+  if (key === 'kitchen') return roleRank(role) >= 2;
+  const tab = TABS.find((t) => t.key === key);
+  return tab ? roleRank(role) >= tab.perm : false;
+}
+
+function defaultScreen(role: string): Screen {
+  return role === 'kitchen' ? 'kitchen' : 'service';
+}
 
 function AppShell() {
   const { openModal, closeModal, toast } = useUI();
@@ -137,8 +158,7 @@ function AppShell() {
         setSession(emp);
         setActiveBranchId(initialBranch(emp));
         const savedScreen = localStorage.getItem(SCREEN_KEY) as Screen | null;
-        const tab = TABS.find((t) => t.key === savedScreen);
-        if (savedScreen && tab && roleRank(emp.role) >= tab.perm) setScreen(savedScreen);
+        setScreen(savedScreen && allowedTab(emp.role, savedScreen) ? savedScreen : defaultScreen(emp.role));
       }
     } catch {
       /* ignore a corrupted session — user just logs in again */
@@ -188,7 +208,7 @@ function AppShell() {
     }
     setSession(employee);
     setActiveBranchId(initialBranch(employee));
-    setScreen('service');
+    setScreen(defaultScreen(employee.role));
   }
 
   async function handleLock() {
@@ -294,7 +314,7 @@ function AppShell() {
               <div className="navMenuLabel">Pages</div>
             </>
           )}
-          {TABS.filter((t) => roleRank(session.role) >= t.perm).map((t) => (
+          {TABS.filter((t) => allowedTab(session.role, t.key)).map((t) => (
             <button
               key={t.key}
               className={'navMenuItem' + (screen === t.key ? ' active' : '')}
@@ -333,6 +353,11 @@ function AppShell() {
   if (!session) return <LockScreen onLogin={handleLogin} />;
 
   const canManage = roleRank(session.role) >= 1;
+  // Waiters and Kitchen staff can never take payment.
+  const canPay = !['waiter', 'kitchen'].includes(session.role);
+  // The screen actually shown — always one the role may see (defence in depth
+  // against a stale saved screen or a manually set state).
+  const view: Screen = allowedTab(session.role, screen) ? screen : defaultScreen(session.role);
   const activeBranch = branches.find((b) => b.id === activeBranchId) || null;
   const activeBranchName = activeBranch?.name ?? '…';
 
@@ -362,7 +387,7 @@ function AppShell() {
           <MenuIcon />
           Menu
         </button>
-        {TABS.filter((t) => roleRank(session.role) >= t.perm).map((t) => (
+        {TABS.filter((t) => allowedTab(session.role, t.key)).map((t) => (
           <button
             key={t.key}
             className={'tab navTab' + (screen === t.key ? ' active' : '')}
@@ -386,7 +411,7 @@ function AppShell() {
         </button>
       </nav>
       <main>
-        {screen === 'service' && (
+        {view === 'service' && (
           <Service
             key={serviceNonce}
             employee={session}
@@ -396,9 +421,11 @@ function AppShell() {
             employees={employees}
             reloadItems={reloadItems}
             isOwner={isOwner}
+            canPay={canPay}
           />
         )}
-        {screen === 'history' && (
+        {view === 'kitchen' && <Kitchen employee={session} branchId={activeBranchId} />}
+        {view === 'history' && (
           <History
             employees={employees}
             canManage={canManage}
@@ -408,7 +435,7 @@ function AppShell() {
             session={session}
           />
         )}
-        {screen === 'inventory' && canManage && (
+        {view === 'inventory' && canManage && (
           <Inventory
             items={items}
             categories={categories}
@@ -418,10 +445,10 @@ function AppShell() {
             branchName={activeBranchName}
           />
         )}
-        {screen === 'categories' && canManage && (
+        {view === 'categories' && canManage && (
           <Categories categories={categories} reloadCategories={reloadCategories} session={session} />
         )}
-        {screen === 'employees' && canManage && (
+        {view === 'employees' && canManage && (
           <Employees
             employees={employees}
             reloadEmployees={reloadEmployees}
@@ -430,13 +457,13 @@ function AppShell() {
             branches={branches}
           />
         )}
-        {screen === 'branches' && isOwner && (
+        {view === 'branches' && isOwner && (
           <Branches branches={branches} reloadBranches={reloadBranches} session={session} />
         )}
-        {screen === 'expenses' && canManage && (
+        {view === 'expenses' && canManage && (
           <Expenses employee={session} branchId={activeBranchId} isOwner={isOwner} />
         )}
-        {screen === 'activity' && isOwner && <ActivityLogs />}
+        {view === 'activity' && isOwner && <ActivityLogs />}
       </main>
       <AssistiveTouch onOpen={openMenu} />
     </div>

@@ -559,4 +559,59 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
   .expBreakdown{width:auto;}
   .expList{overflow:visible;}
 }
+/* ─── Kitchen status pill on order lines (Service panel) ────────────────────*/
+.kStat{font-size:11px; font-weight:800; letter-spacing:.02em; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+.kStat.done{background:rgba(46,139,87,.16); color:#1f7a49;}
+.kStat.prep{background:rgba(224,169,62,.20); color:var(--amber-dark);}
+.kStat.pending{background:var(--paper); color:var(--muted);}
+
+/* ─── Kitchen Dashboard ─────────────────────────────────────────────────────*/
+.kitchenScreen{background:var(--paper);}
+.kcCount{font-size:13px; font-weight:800; color:#fff; background:var(--ink); padding:3px 12px; border-radius:999px;}
+.kcLegend{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); font-weight:600;}
+.dot.warn{background:var(--amber);}
+.kitchenGrid{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px 20px 28px;
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); grid-auto-rows:max-content; gap:16px; align-content:start;}
+.kcCard{background:var(--panel); border:1px solid var(--line); border-left:7px solid var(--ok);
+  border-radius:var(--radius); padding:14px 16px 16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px;}
+.kcCard.warn{border-left-color:var(--amber); background:linear-gradient(180deg,#FFFBF2,#fff);}
+.kcCard.late{border-left-color:var(--danger); background:linear-gradient(180deg,#FFF6F4,#fff);}
+.kcHead{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.kcHeadMain{display:flex; flex-direction:column; gap:2px;}
+.kcTable{font-size:26px; font-weight:900; line-height:1; letter-spacing:-.01em;}
+.kcOrderNo{font-size:12.5px; color:var(--muted); font-weight:600;}
+.kcHeadSide{display:flex; flex-direction:column; align-items:flex-end; gap:4px;}
+.kcStatus{font-size:11px; font-weight:900; letter-spacing:.04em; padding:3px 9px; border-radius:999px;}
+.kcStatus.new{background:rgba(47,109,208,.14); color:#2558a8;}
+.kcStatus.preparing{background:rgba(224,169,62,.22); color:var(--amber-dark);}
+.kcStatus.ready{background:rgba(46,139,87,.18); color:#1f7a49;}
+.kcTimer{font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;}
+.kcCard.late .kcTimer{color:var(--danger);}
+.kcCard.warn .kcTimer{color:var(--amber-dark);}
+.kcCustomer{font-size:14px; font-weight:700; color:var(--muted); margin-top:-4px;}
+.kcRound{display:flex; flex-direction:column; gap:7px;}
+.kcRoundHead{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:800;
+  color:var(--gold-dark); background:var(--gold-tint); padding:5px 10px; border-radius:8px; margin-top:2px;}
+.kcRoundTime{font-variant-numeric:tabular-nums; color:var(--amber-dark);}
+.kcItem{display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:12px 12px; border-radius:10px;
+  border:1.5px solid var(--line); background:#fff; cursor:pointer; transition:transform .05s, background .12s;}
+.kcItem:active{transform:scale(.99);}
+.kcItem .kcCheck{font-size:24px; line-height:1; color:var(--muted);}
+.kcItem .kcQty{font-size:18px; font-weight:900; min-width:34px;}
+.kcItem .kcName{font-size:18px; font-weight:700; flex:1;}
+.kcItem.done{background:rgba(46,139,87,.09); border-color:rgba(46,139,87,.35);}
+.kcItem.done .kcCheck{color:var(--ok);}
+.kcItem.done .kcName, .kcItem.done .kcQty{color:var(--muted); text-decoration:line-through;}
+.kcComplete{margin-top:4px; width:100%; padding:14px; border-radius:12px; border:2px dashed var(--line);
+  background:var(--paper); color:var(--muted); font-size:15px; font-weight:800; cursor:pointer;}
+.kcComplete.ready{border-style:solid; border-color:var(--ok); background:var(--ok); color:#fff;}
+.kcComplete.ready:active{transform:scale(.99);}
+.kitchenEmpty{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted);}
+.kitchenEmpty .keMark{font-size:54px;}
+.kitchenEmpty p{font-size:17px; font-weight:700;}
+@media (max-width:860px){
+  .kitchenGrid{grid-template-columns:1fr; padding:10px 12px 90px; gap:12px;}
+  .kcLegend{display:none;}
+}
+
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}

@@ -20,6 +20,16 @@ export const SellIcon = () => (
   </svg>
 );
 
+export const KitchenIcon = () => (
+  // A cloche (serving dome) — reads clearly as "kitchen / food ready".
+  <svg {...base} aria-hidden>
+    <path d="M4 17h16" />
+    <path d="M5 17a7 7 0 0 1 14 0" />
+    <path d="M12 7V5m-1 0h2" />
+    <path d="M3 20h18" />
+  </svg>
+);
+
 export const HistoryIcon = () => (
   <svg {...base} aria-hidden>
     <path d="M4 4h16v17l-2.7-1.8L14.6 21l-2.6-1.8L9.4 21l-2.7-1.8L4 21V4Z" />

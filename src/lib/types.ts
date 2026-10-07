@@ -1,7 +1,10 @@
 // Shared domain types — the single source of truth for both the route
 // handlers (what they return) and the client components (what they render).
 
-export type Role = 'cashier' | 'manager' | 'owner' | 'super_admin';
+export type Role = 'cashier' | 'manager' | 'owner' | 'super_admin' | 'waiter' | 'kitchen';
+
+/** Per-item kitchen preparation status. */
+export type KitchenStatus = 'pending' | 'preparing' | 'done';
 export type StockStatus = 'ok' | 'low' | 'out';
 export type PaymentMethod = 'cash' | 'card';
 export type AdjustReason = 'receive' | 'recount' | 'damage';
@@ -165,9 +168,29 @@ export interface TableSessionItem {
   qty: number;
   round: number;
   created_at: string;
+  kitchen_status?: KitchenStatus;
+  kitchen_done_at?: string | null;
 }
 
 export type ServiceType = 'dine_in' | 'take_out' | 'delivery' | 'pick_up' | 'employee';
+
+/** One active order on the Kitchen Dashboard (a dine-in table or a food order). */
+export interface KitchenOrder {
+  session_id: number;
+  service_type: ServiceType;
+  table_label: string; // "5" or "3 + 4"; empty for non-dine-in
+  customer_name: string | null;
+  customer_count: number;
+  opened_at: string;
+  items: {
+    id: number;
+    name: string;
+    qty: number;
+    round: number;
+    created_at: string;
+    kitchen_status: KitchenStatus;
+  }[];
+}
 
 /** Full detail of one session — a dine-in table tab OR a take-out/delivery/
  *  pick-up order ticket (no table, with a customer record). */
