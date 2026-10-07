@@ -688,7 +688,9 @@ export default function Service({
                     ? 'reserved'
                     : t.session_status === 'for_payment'
                       ? 'pay'
-                      : 'busy';
+                      : (t.item_count ?? 0) > 0
+                        ? 'prep' // order taken — kitchen preparing
+                        : 'busy'; // seated, no order yet
               const combined = (t.session_tables_label ?? '').includes('+');
               return (
                 <div key={t.table_id} className="tableCell">
@@ -711,7 +713,9 @@ export default function Service({
                           ? 'Reserved'
                           : status === 'pay'
                             ? 'For payment'
-                            : 'Occupied'}
+                            : status === 'prep'
+                              ? 'Preparing'
+                              : 'Occupied'}
                     </span>
                   </div>
                   {status === 'free' ? (

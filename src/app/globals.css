@@ -377,6 +377,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .tableCard.free{border-left-color:var(--ok);}
 .tableCard.busy{border-left-color:var(--danger); background:linear-gradient(180deg,#FFF8F7,#fff);}
 .tableCard.pay{border-left-color:#2F6DD0; background:linear-gradient(180deg,#F5F9FF,#fff);}
+.tableCard.prep{border-left-color:var(--amber); background:linear-gradient(180deg,#FFFBF2,#fff);}
 .tableCard.reserved{border-left-color:#8A5CD0; background:linear-gradient(180deg,#F7F4FF,#fff);}
 .tcStatus.reserved{background:rgba(138,92,208,.16); color:#6a45b0;}
 .tcResv{font-size:17px; font-weight:800; letter-spacing:-.01em; color:#6a45b0;}
@@ -412,6 +413,7 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
 .tcStatus.free{background:rgba(46,139,87,.14); color:#1f6b41;}
 .tcStatus.busy{background:rgba(196,72,59,.14); color:#a5382d;}
 .tcStatus.pay{background:rgba(47,109,208,.14); color:#255cb0;}
+.tcStatus.prep{background:rgba(224,169,62,.22); color:var(--amber-dark);}
 .tcBody{display:flex; flex-direction:column; gap:3px;}
 .tcTotal{font-size:22px; font-weight:800; letter-spacing:-.02em;}
 .tcMeta{font-size:13px; color:var(--muted);}
