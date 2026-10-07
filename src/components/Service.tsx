@@ -793,7 +793,7 @@ export default function Service({
             </div>
           )}
 
-          {empTabs.length > 0 && (
+          {canPay && empTabs.length > 0 && (
             <>
               <div className="svcOrdersHead">
                 <h3>👤 Employee tabs</h3>
