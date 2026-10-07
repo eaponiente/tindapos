@@ -174,7 +174,8 @@ export default function Kitchen({ employee, branchId }: KitchenProps) {
         </div>
       ) : (
         <div className="kitchenGrid">
-          {orders.map((o) => {
+          {orders.map((o, idx) => {
+            const queue = idx + 1; // position in line — oldest (longest waiting) is #1
             const rounds = toRounds(o.items);
             const total = o.items.length;
             const done = o.items.filter((i) => i.kitchen_status === 'done').length;
@@ -188,8 +189,14 @@ export default function Kitchen({ employee, branchId }: KitchenProps) {
               <div className={`kcCard ${u}`} key={o.session_id}>
                 <div className="kcHead">
                   <div className="kcHeadMain">
-                    <span className="kcTable">{heading}</span>
-                    <span className="kcOrderNo">Order #{o.session_id}</span>
+                    <div className="kcQueue" title="Queue position (oldest order first)">
+                      <small>QUEUE</small>
+                      <b>{queue}</b>
+                    </div>
+                    <div className="kcHeadText">
+                      <span className="kcTable">{heading}</span>
+                      <span className="kcOrderNo">Order #{o.session_id}</span>
+                    </div>
                   </div>
                   <div className="kcHeadSide">
                     <span className={`kcStatus ${status}`}>
