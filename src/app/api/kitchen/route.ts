@@ -33,21 +33,35 @@ export const GET = handler(async (request: NextRequest) => {
   const ids = (sessions ?? []).map((s) => s.id);
   if (ids.length === 0) return NextResponse.json([] as KitchenOrder[]);
 
-  let itemsRes = await db()
-    .from('table_session_items')
-    .select('id, session_id, name, qty, round, created_at, kitchen_status')
-    .in('session_id', ids)
-    .order('round')
-    .order('id');
-  if (itemsRes.error) {
-    itemsRes = await db()
+  type RawItem = {
+    id: number;
+    session_id: number;
+    name: string;
+    qty: number;
+    round: number;
+    created_at: string;
+    kitchen_status?: string | null;
+  };
+  let items: RawItem[] | null;
+  {
+    const withStatus = await db()
       .from('table_session_items')
-      .select('id, session_id, name, qty, round, created_at')
+      .select('id, session_id, name, qty, round, created_at, kitchen_status')
       .in('session_id', ids)
       .order('round')
       .order('id');
+    if (withStatus.error) {
+      const without = await db()
+        .from('table_session_items')
+        .select('id, session_id, name, qty, round, created_at')
+        .in('session_id', ids)
+        .order('round')
+        .order('id');
+      items = (without.data as unknown as RawItem[] | null) ?? null;
+    } else {
+      items = (withStatus.data as unknown as RawItem[] | null) ?? null;
+    }
   }
-  const items = itemsRes.data;
 
   const { data: assigns } = await db()
     .from('table_session_tables')
