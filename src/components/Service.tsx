@@ -55,7 +55,7 @@ function schedLabel(t: ServiceType): string {
 }
 
 function sessionTitle(s: TableSession): string {
-  if (s.service_type === 'dine_in') return `Table ${s.tables_label}`;
+  if (s.service_type === 'dine_in') return `Customer ${s.tables_label}`;
   const t = orderTypeLabel(s.service_type);
   return s.customer_name ? `${t} — ${s.customer_name}` : t;
 }
@@ -514,7 +514,7 @@ export default function Service({
             ← Service
           </button>
           <h2>
-            {dine ? `Table ${s.tables_label}` : `${TYPE_EMOJI[s.service_type]} ${orderTypeLabel(s.service_type)}`}
+            {dine ? `Customer ${s.tables_label}` : `${TYPE_EMOJI[s.service_type]} ${orderTypeLabel(s.service_type)}`}
           </h2>
           {dine && (
             <button className="tblPax editable" onClick={() => editDiners(s)} title="Edit diners">
@@ -704,7 +704,7 @@ export default function Service({
                 >
                   <div className="tcTop">
                     <span className="tcNum">
-                      {combined ? `Table ${t.session_tables_label}` : `Table ${t.table_number}`}
+                      {combined ? `Customer ${t.session_tables_label}` : `Customer ${t.table_number}`}
                     </span>
                     <span className={'tcStatus ' + status}>
                       {status === 'free'
@@ -993,7 +993,7 @@ function TableStartModal({
   return (
     <>
       <header>
-        <h3>Table {tableNumber}</h3>
+        <h3>Customer {tableNumber}</h3>
       </header>
       <div className="bodyPad">
         <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 14 }}>How is this table being used?</p>
@@ -1036,7 +1036,7 @@ function ReservationModal({
   return (
     <>
       <header>
-        <h3>Reserve Table {tableNumber}</h3>
+        <h3>Reserve Customer {tableNumber}</h3>
       </header>
       <div className="bodyPad">
         <div className="field">
