@@ -19,16 +19,22 @@ export const PUT = handler(async (request: NextRequest, { params }: Ctx) => {
     employee_price:
       body.employee_price === '' || body.employee_price == null ? null : Number(body.employee_price),
     low_stock: Number(body.low_stock),
+    talaba_type: body.talaba_type ?? null,
     ...(body.color ? { color: body.color } : {}),
     // stock is intentionally NOT editable here — use /adjust so every
-    // change is captured in the stock_adjustments audit trail.
+    // change is captured in the stock_adjustments audit trail. (Re-tagging the
+    // oyster type re-pools the item's stock automatically via the DB trigger.)
     updated_at: new Date().toISOString(),
   };
   const update = () => db().from('items').update(row).eq('id', id).select(ITEM_SELECT).single();
   let res = await update();
-  // Graceful fallback if employee_price isn't migrated yet.
+  // Graceful fallback for columns not migrated yet (employee_price / talaba_type).
   if (res.error && /employee_price/i.test(res.error.message)) {
     delete row.employee_price;
+    res = await update();
+  }
+  if (res.error && /talaba_type/i.test(res.error.message)) {
+    delete row.talaba_type;
     res = await update();
   }
   if (res.error) return fail(friendlyDbError(res.error, 'SKU'));

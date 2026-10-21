@@ -39,13 +39,18 @@ export const POST = handler(async (request: NextRequest) => {
       body.employee_price === '' || body.employee_price == null ? null : Number(body.employee_price),
     stock: Number(body.stock),
     low_stock: Number(body.low_stock),
+    talaba_type: body.talaba_type || null,
     color: body.color || '#B88A2E',
   };
   const insert = () => db().from('items').insert(row).select(ITEM_SELECT).single();
   let res = await insert();
-  // Graceful fallback if employee_price isn't migrated yet.
+  // Graceful fallback for columns not migrated yet (employee_price / talaba_type).
   if (res.error && /employee_price/i.test(res.error.message)) {
     delete row.employee_price;
+    res = await insert();
+  }
+  if (res.error && /talaba_type/i.test(res.error.message)) {
+    delete row.talaba_type;
     res = await insert();
   }
   if (res.error) return fail(friendlyDbError(res.error, 'SKU'));

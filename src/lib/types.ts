@@ -54,6 +54,7 @@ export interface Item {
   employee_price?: number | null; // staff price for this item (null = regular price)
   stock: number;
   low_stock: number;
+  talaba_type?: 'red' | 'white' | 'tawi_tawi' | null; // oyster pool for Talaba items
   color: string;
   position: number; // display order on the Sell grid (owner-arranged)
   image: string | null;

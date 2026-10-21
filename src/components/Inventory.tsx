@@ -17,6 +17,7 @@ interface ItemFormState {
   employee_price: number | '';
   stock: number;
   low_stock: number;
+  talaba_type: 'red' | 'white' | 'tawi_tawi' | '';
 }
 
 interface InventoryProps {
@@ -98,6 +99,7 @@ export default function Inventory({
       employee_price: item?.employee_price ?? draft.employee_price ?? ('' as number | ''),
       stock: item?.stock ?? draft.stock ?? 0,
       low_stock: item?.low_stock ?? draft.low_stock ?? 5,
+      talaba_type: item?.talaba_type ?? draft.talaba_type ?? '',
     };
 
     // Persist the new-item draft on every change so it survives an accidental
@@ -128,6 +130,10 @@ export default function Inventory({
     let skuInputEl: HTMLInputElement | null = null;
 
     const render = () => {
+      // The oyster-type picker appears only for Talaba categories (TALABA /
+      // TALABA SPECIALS), so each oyster's stock is tracked to its own pool.
+      const selCat = categories.find((c) => c.id === state.category_id);
+      const isTalabaCat = (selCat?.name ?? '').toUpperCase().includes('TALABA');
       openModal(
         <>
           <header>
@@ -192,6 +198,7 @@ export default function Inventory({
                   onChange={(e) => {
                     state.category_id = Number(e.target.value);
                     saveDraft();
+                    render(); // show/hide the oyster-type picker
                   }}
                 >
                   {categories.map((c) => (
@@ -202,6 +209,23 @@ export default function Inventory({
                 </select>
               </div>
             </div>
+            {isTalabaCat && (
+              <div className="field">
+                <label>🦪 Oyster type — tracks this item&apos;s stock pool</label>
+                <select
+                  defaultValue={state.talaba_type}
+                  onChange={(e) => {
+                    state.talaba_type = e.target.value as ItemFormState['talaba_type'];
+                    saveDraft();
+                  }}
+                >
+                  <option value="">— none (not a specific oyster) —</option>
+                  <option value="red">Red Talaba</option>
+                  <option value="white">White Talaba</option>
+                  <option value="tawi_tawi">Tawi-Tawi</option>
+                </select>
+              </div>
+            )}
             <div className="fieldRow">
               <div className="field">
                 <label>Cost (₱)</label>
@@ -302,6 +326,9 @@ export default function Inventory({
                   price: +state.price || 0,
                   employee_price: state.employee_price === '' ? null : +state.employee_price,
                   low_stock: +state.low_stock || 0,
+                  // Only a Talaba-category item carries an oyster type; leaving the
+                  // category clears it so it drops out of the oyster pool.
+                  talaba_type: isTalabaCat ? state.talaba_type || null : null,
                 };
                 try {
                   const saved = isNew
