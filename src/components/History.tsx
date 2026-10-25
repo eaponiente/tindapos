@@ -33,9 +33,16 @@ export default function History({
   const [loading, setLoading] = useState(true);
 
   const isSuperAdmin = roleRank(session.role) >= 3;
-  // A manager/cashier is locked to their branch; the owner picks via the filter.
-  const scopedBranchId = isOwner ? (branchFilter ? Number(branchFilter) : undefined) : branchId ?? undefined;
-  const showBranchColumn = isOwner;
+  // Only a Super Admin always sees every branch. An owner sees all branches just
+  // when assigned to all (no specific branch); an owner tied to one branch — like
+  // a manager/cashier — is locked to their own branch.
+  const canSeeAllBranches = isSuperAdmin || (isOwner && session.branch_id == null);
+  const scopedBranchId = canSeeAllBranches
+    ? branchFilter
+      ? Number(branchFilter)
+      : undefined
+    : session.branch_id ?? undefined;
+  const showBranchColumn = canSeeAllBranches;
 
   async function load() {
     setLoading(true);
@@ -349,7 +356,7 @@ export default function History({
       <div className="topbar">
         <h2>Sales history</h2>
         <div className="grow"></div>
-        {isOwner && (
+        {canSeeAllBranches && (
           <select
             className="search"
             style={{ minWidth: 150 }}
