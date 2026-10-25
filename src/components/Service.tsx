@@ -26,6 +26,7 @@ interface ServiceProps {
   reloadItems: () => Promise<void>;
   isOwner: boolean;
   canPay?: boolean; // false for waiters — payment & void are hidden
+  branchName?: string; // for the bill/receipt header
 }
 
 type Mode =
@@ -69,6 +70,7 @@ export default function Service({
   reloadItems,
   isOwner,
   canPay = true,
+  branchName,
 }: ServiceProps) {
   const { toast, openModal, closeModal } = useUI();
   const ui = { openModal, closeModal, toast };
@@ -315,6 +317,7 @@ export default function Service({
         discount: ed && ed.discount > 0 ? ed.discount : 0,
         discountLabel: ed ? `Employee ${Math.round(ed.pct)}%` : 'Employee',
         total: ed && ed.discount > 0 ? ed.staff : session.total,
+        branchName,
       }) + '\n\n\n\n',
     );
     toast(ok ? 'Bill sent to printer' : 'Could not reach the printer');

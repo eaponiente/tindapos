@@ -605,8 +605,29 @@ export function orderTypeLabel(type?: string | null): string {
   }
 }
 
+/** Centre a line within the 32-column thermal width. */
+function centerLine(s: string, width = 32): string {
+  if (s.length >= width) return s;
+  return ' '.repeat(Math.floor((width - s.length) / 2)) + s;
+}
+
+/** The branch's address line for the receipt header. Known branches are spelled
+ *  exactly; any future branch falls back to "<Branch>, Davao City". */
+function branchLocation(branchName?: string | null): string {
+  const n = (branchName ?? '').toLowerCase();
+  if (n.includes('buhangin')) return 'Buhangin, Davao City';
+  if (n.includes('calinan')) return 'Calinan, Davao City PH';
+  const area = (branchName ?? '').replace(/\s*branch\s*$/i, '').trim();
+  return area && area !== '…' ? `${area}, Davao City` : 'Davao City';
+}
+
+/** The two centred header lines (store name + branch location). */
+export function receiptHeader(branchName?: string | null): string {
+  return `${centerLine('DAVAO TALABAHAN')}\n${centerLine(branchLocation(branchName))}\n`;
+}
+
 export function receiptText(sale: Sale): string {
-  let s = '        DAVAO TALABAHAN\n    Calinan, Davao City PH\n';
+  let s = receiptHeader(sale.branch?.name);
   s += '--------------------------------\n';
   s += `Receipt #${sale.id}\n${fmtDT(sale.created_at)}\nCashier: ${
     sale.employee?.name || sale.employee_name || '—'
@@ -715,8 +736,9 @@ export function billText(opts: {
   discount?: number;
   discountLabel?: string;
   total: number;
+  branchName?: string | null;
 }): string {
-  let s = '        DAVAO TALABAHAN\n    Calinan, Davao City PH\n';
+  let s = receiptHeader(opts.branchName);
   s += '--------------------------------\n';
   s += '            * BILL *\n';
   s += '     Not an official receipt\n';

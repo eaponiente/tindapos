@@ -422,6 +422,7 @@ function AppShell() {
             reloadItems={reloadItems}
             isOwner={isOwner}
             canPay={canPay}
+            branchName={activeBranchName}
           />
         )}
         {view === 'kitchen' && <Kitchen employee={session} branchId={activeBranchId} />}
